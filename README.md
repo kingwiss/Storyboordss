@@ -1,6 +1,33 @@
-# AI Article Audiobook
+# Storyboards - Interactive Audiobook Platform
 
-An intelligent web application that converts articles into interactive audiobooks with AI-generated images, summaries, and text-to-speech narration.
+A fully functional web application that transforms articles into immersive audiobook experiences with Text-to-Speech (TTS) technology, user management, and seamless navigation.
+
+## Features
+
+### 🎧 Advanced TTS System
+- **Smart Resume**: Continue reading from where you left off across page navigation
+- **Current Article Navigation**: Header button to quickly return to active TTS session
+- **Cross-page Continuity**: TTS state preserved when navigating between pages
+- **Floating Progress Bar**: Visual progress tracking with play/pause controls
+- **Word Highlighting**: Real-time text highlighting during speech
+
+### 👤 User Management
+- User registration and authentication
+- Personal article library ("My Articles")
+- Secure password reset functionality
+- Session management with persistent login
+
+### 🎵 Ambient Experience
+- Background music integration
+- Volume control and audio mixing
+- Immersive reading environment
+
+### 📱 Modern UI/UX
+- Responsive design for all devices
+- Dark/light theme support
+- Touch gesture controls
+- Floating navigation elements
+- Smooth animations and transitions
 
 ## Features
 

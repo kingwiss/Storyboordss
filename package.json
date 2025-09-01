@@ -1,0 +1,30 @@
+{
+  "name": "article-audiobook-app",
+  "version": "1.0.0",
+  "description": "An application to convert articles into audiobooks with AI-generated summaries and images.",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "cd backend && npm install && npm start",
+    "build": "npm install && cd backend && npm install",
+    "dev": "npx http-server public -p 3000 -P http://localhost:3001 --cors"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "audiobook",
+    "article",
+    "ai",
+    "text-to-speech"
+  ],
+  "author": "Trae AI",
+  "license": "ISC",
+  "dependencies": {
+    "live-server": "^1.2.2"
+  },
+  "devDependencies": {
+    "http-proxy-middleware": "^3.0.5",
+    "http-server": "^14.1.1"
+  }
+}

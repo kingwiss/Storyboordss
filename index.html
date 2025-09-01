@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Article Audiobook</title>
+    <link rel="stylesheet" href="./public/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="header-content">
+                <h1>AI Article Audiobook</h1>
+                <nav class="main-navigation">
+                    <a href="index.html" class="nav-link active">
+                        <i class="fas fa-home"></i>
+                        <span>Home</span>
+                    </a>
+                    <a href="./public/my-articles.html" class="nav-link">
+                        <i class="fas fa-book"></i>
+                        <span>My Articles</span>
+                    </a>
+                </nav>
+                <div id="auth-section">
+                    <div id="auth-buttons" class="auth-logged-out">
+                        <button id="login-btn" class="auth-btn">Login</button>
+                        <button id="signup-btn" class="auth-btn">Sign Up</button>
+                    </div>
+                    <div id="user-info" class="auth-logged-in" style="display: none;">
+                        <span id="welcome-text">Welcome, <span id="username"></span>!</span>
+                        <button id="profile-btn" class="auth-btn">Profile</button>
+                        <button id="logout-btn" class="auth-btn">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <main>
+            <div id="input-container">
+                <input type="text" id="article-url" placeholder="Enter article URL">
+                <button id="generate-btn">Generate Audiobook</button>
+                <div class="demo-note">
+                    <p><strong>Note:</strong> This is a frontend demo. Backend functionality requires a live server.</p>
+                    <p>For full functionality, please run the backend server locally.</p>
+                </div>
+            </div>
+            <div id="loading-container" style="display: none;">
+                <div class="spinner"></div>
+                <p id="loading-text">Generating your audiobook...</p>
+                <div id="loading-progress">
+                    <div id="progress-bar"></div>
+                    <span id="progress-text">0%</span>
+                </div>
+            </div>
+            <div id="result-container" style="display: none;">
+                <h2>Your Audiobook is Ready!</h2>
+                <div id="article-info">
+                    <h3 id="article-title"></h3>
+                    <p id="article-summary"></p>
+                </div>
+                <div id="audio-player-container">
+                    <audio id="audio-player" controls>
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+                <div id="audio-controls">
+                    <button id="play-pause-btn"><i class="fas fa-play"></i></button>
+                    <button id="speed-btn">1x</button>
+                    <button id="download-btn"><i class="fas fa-download"></i> Download</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="auth-form-container">
+                <form id="auth-form">
+                    <h2 id="auth-title">Login</h2>
+                    <input type="email" id="email" placeholder="Email" required>
+                    <input type="password" id="password" placeholder="Password" required>
+                    <input type="text" id="username-input" placeholder="Username" style="display: none;">
+                    <button type="submit" id="auth-submit">Login</button>
+                    <p id="auth-switch">
+                        Don't have an account? <a href="#" id="switch-to-signup">Sign up</a>
+                    </p>
+                    <p id="auth-switch-login" style="display: none;">
+                        Already have an account? <a href="#" id="switch-to-login">Login</a>
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="./public/script.js"></script>
+    <script src="./public/persistent-audio.js"></script>
+    <script src="./public/floating-progress-bar.js"></script>
+</body>
+</html>

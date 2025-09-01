@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article View - AI Article Audiobook</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="article-view-page">
+    <header class="main-nav">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="index.html">
+                    <i class="fas fa-headphones"></i>
+                    AI Article Audiobook
+                </a>
+            </div>
+            <button class="mobile-menu-toggle" aria-expanded="false" aria-label="Toggle navigation menu">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    Home
+                </a>
+                <a href="my-articles.html" class="nav-link">
+                    <i class="fas fa-bookmark"></i>
+                    My Articles
+                </a>
+                <a href="#" id="current-article-nav" class="nav-link" style="display: none;">
+                    <i class="fas fa-play-circle"></i>
+                    Current Article
+                </a>
+            </div>
+            <div class="nav-user" id="nav-user">
+                <!-- User info will be populated by JavaScript -->
+            </div>
+        </div>
+    </header>
+
+    <main class="article-view-container">
+        <div class="article-navigation">
+            <button class="back-btn" onclick="goBackToArticles()">
+                <i class="fas fa-arrow-left"></i>
+                Back to My Articles
+            </button>
+        </div>
+
+        <div class="loading-state" id="loading-state">
+            <div class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+            </div>
+            <p>Loading article...</p>
+        </div>
+
+        <div class="article-not-found" id="article-not-found" style="display: none;">
+            <div class="error-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h3>Article Not Found</h3>
+            <p>The requested article could not be loaded.</p>
+            <button class="btn btn-primary" onclick="goBackToArticles()">
+                <i class="fas fa-arrow-left"></i>
+                Back to My Articles
+            </button>
+        </div>
+
+        <article class="full-page-article" id="article-content" style="display: none;">
+            <header class="article-header">
+                <h1 class="article-title" id="article-title"></h1>
+                <div class="article-meta">
+                    <div class="article-date" id="article-date"></div>
+                    <a href="#" class="original-link" id="original-link" target="_blank">
+                        <i class="fas fa-external-link-alt"></i>
+                        View Original
+                    </a>
+                </div>
+            </header>
+
+            <!-- Audio Controls -->
+            <div class="audio-controls-section" id="audio-controls-section" style="display: none;">
+                <div class="audio-controls">
+                    <button id="play-pause-btn" class="audio-btn play-btn">
+                        <i class="fas fa-play"></i>
+                        <span>Play</span>
+                    </button>
+                    <button id="stop-btn" class="audio-btn stop-btn">
+                        <i class="fas fa-stop"></i>
+                        <span>Stop</span>
+                    </button>
+                    <div class="progress-container">
+                        <input type="range" id="progress-bar" class="progress-slider" value="0" min="0" max="100">
+                        <div class="time-display" id="time-display">0:00 / 0:00</div>
+                    </div>
+                    <div class="speed-control">
+                        <label for="speed-control">Speed:</label>
+                        <select id="speed-control" class="speed-select">
+                            <option value="0.5">0.5x</option>
+                            <option value="0.75">0.75x</option>
+                            <option value="1" selected>1x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2x</option>
+                        </select>
+                    </div>
+                    <div class="voice-control">
+                        <label for="voice-control">Voice:</label>
+                        <select id="voice-control" class="voice-select">
+                            <option value="default">Default</option>
+                        </select>
+                    </div>
+                    <button id="music-toggle-btn" class="music-toggle" title="Toggle background music">
+                        <i class="fas fa-music"></i>
+                        <span>Music</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="article-body">
+                <section class="article-text-section">
+                    <h2>
+                        <i class="fas fa-file-text"></i>
+                        Full Article
+                    </h2>
+                    <div class="article-full-text" id="article-full-text"></div>
+                </section>
+
+                <section class="article-images-section" id="article-images-section" style="display: none;">
+                    <h2>
+                        <i class="fas fa-images"></i>
+                        AI Generated Images
+                    </h2>
+                    <div class="image-gallery" id="image-gallery"></div>
+                </section>
+
+                <section class="article-summary-section">
+                    <h2>
+                        <i class="fas fa-file-alt"></i>
+                        Summary
+                    </h2>
+                    <div class="article-summary-content" id="article-summary"></div>
+                </section>
+
+                <section class="key-points-section" id="key-points-section" style="display: none;">
+                    <h2>
+                        <i class="fas fa-key"></i>
+                        Key Points
+                    </h2>
+                    <ul class="key-points-list" id="key-points-list"></ul>
+                </section>
+            </div>
+        </article>
+    </main>
+
+    <!-- Login Modal -->
+    <div class="modal" id="login-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Login</h3>
+                <button class="close-btn" onclick="closeModal('login-modal')">&times;</button>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-email">Email:</label>
+                    <input type="email" id="login-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password:</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <div class="error-message" id="login-error"></div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Signup Modal -->
+    <div class="modal" id="signup-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Sign Up</h3>
+                <button class="close-btn" onclick="closeModal('signup-modal')">&times;</button>
+            </div>
+            <form id="signup-form">
+                <div class="form-group">
+                    <label for="signup-username">Username:</label>
+                    <input type="text" id="signup-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-email">Email:</label>
+                    <input type="email" id="signup-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-password">Password:</label>
+                    <input type="password" id="signup-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-confirm-password">Confirm Password:</label>
+                    <input type="password" id="signup-confirm-password" required>
+                </div>
+                <div class="error-message" id="signup-error"></div>
+                <button type="submit" class="btn btn-primary">Sign Up</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Floating Scroll to Current Button -->
+    <button id="scroll-to-current-btn" class="scroll-to-current-btn" title="Scroll to current reading position">
+        <i class="fas fa-crosshairs"></i>
+    </button>
+
+    <script src="theme-utils.js"></script>
+    <script src="real-music-player.js"></script>
+    <script src="persistent-music.js"></script>
+    <script src="floating-tts-tracker.js"></script>
+    <script src="touch-gestures.js"></script>
+    <script src="article-view.js"></script>
+</body>
+</html>

@@ -22,7 +22,10 @@ JWT_SECRET=your-super-secret-jwt-key-here-make-it-long-and-random
 FRONTEND_URL=https://fredwesselink.github.io
 RAILWAY_STATIC_URL=https://fredwesselink.github.io
 PORT=3000
+GEMINI_API_KEY=AIzaSyAg2zoZs9ptl4wRgr4FrEEwD0npsEO7ezs
 ```
+
+**CRITICAL**: The `GEMINI_API_KEY` is essential for AI image generation. Without it, the system will generate generic demo images instead of relevant article images.
 
 ### Step 4: Get Your Deployment URL
 1. After deployment completes, Railway will provide a URL like:

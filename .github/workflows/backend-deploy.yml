@@ -1,0 +1,60 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Run tests (if any)
+      run: |
+        cd backend
+        npm test --if-present
+        
+    - name: Deploy to Railway
+      uses: railwayapp/railway-deploy@v1.0.0
+      with:
+        railway_token: ${{ secrets.RAILWAY_TOKEN }}
+        service: ${{ secrets.RAILWAY_SERVICE_ID }}
+        
+    # Alternative: Deploy to Heroku
+    # - name: Deploy to Heroku
+    #   uses: akhileshns/heroku-deploy@v3.12.14
+    #   with:
+    #     heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+    #     heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
+    #     heroku_email: ${{ secrets.HEROKU_EMAIL }}
+    #     appdir: "backend"
+    #     
+    # Alternative: Deploy to DigitalOcean App Platform
+    # - name: Deploy to DigitalOcean
+    #   uses: digitalocean/app_action@v1.1.5
+    #   with:
+    #     app_name: ${{ secrets.DO_APP_NAME }}
+    #     token: ${{ secrets.DO_TOKEN }}
+        
+    - name: Update deployment status
+      run: |
+        echo "Backend deployed successfully!"
+        echo "Make sure to update the API_BASE_URL in public/config.js with your deployed backend URL"

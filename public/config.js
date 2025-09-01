@@ -3,20 +3,20 @@ const CONFIG = {
     // API Base URL - change this for production deployment
     API_BASE_URL: window.location.hostname === 'localhost' 
         ? 'http://localhost:3001'
-        : null, // Backend not deployed yet - will show appropriate message
+        : 'https://your-backend-url.railway.app', // Replace with actual Railway URL after deployment
     
     // Environment detection
     IS_DEVELOPMENT: window.location.hostname === 'localhost',
     IS_PRODUCTION: window.location.hostname !== 'localhost',
     
     // Backend deployment status
-    BACKEND_DEPLOYED: window.location.hostname === 'localhost'
+    BACKEND_DEPLOYED: false // Set to true after backend deployment
 };
 
 // Helper function to get full API URL
-function getApiUrl(endpoint) {
+function getApiUrl(endpoint = '') {
     if (!CONFIG.BACKEND_DEPLOYED) {
-        throw new Error('Backend not deployed yet. Please deploy the backend first and update the API_BASE_URL in config.js');
+        throw new Error('Backend deployment required. Please see BACKEND_DEPLOYMENT_GITHUB.md for instructions.');
     }
     return `${CONFIG.API_BASE_URL}${endpoint}`;
 }

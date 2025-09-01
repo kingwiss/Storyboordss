@@ -19,8 +19,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production' 
-        ? [process.env.FRONTEND_URL, process.env.RAILWAY_STATIC_URL]
-        : 'http://localhost:3001',
+        ? [
+            process.env.FRONTEND_URL, 
+            process.env.RAILWAY_STATIC_URL,
+            'https://fredwesselink.github.io', // GitHub Pages URL
+            /\.github\.io$/ // Allow any GitHub Pages subdomain
+          ]
+        : ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']

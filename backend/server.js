@@ -52,6 +52,12 @@ app.use(session({
     cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24 hours
 }));
 
+// Initialize Gemini AI with error checking
+if (!process.env.GEMINI_API_KEY) {
+    console.error('CRITICAL ERROR: GEMINI_API_KEY environment variable is not set!');
+    console.error('This will cause AI image generation to fail and fall back to demo images.');
+    console.error('Please configure GEMINI_API_KEY in your Railway environment variables.');
+}
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Email transporter configuration (Gmail SMTP Server)
@@ -653,6 +659,7 @@ Provide the output in the following JSON format:
                     console.error(`JSON parsing failed on attempt ${aiGenerationAttempts}:`, parseError.message);
                     console.error('Raw AI response:', text);
                     console.error('Cleaned JSON text:', jsonText);
+                    console.error('CRITICAL: Check if GEMINI_API_KEY is properly configured in Railway environment variables');
                     
                     if (aiGenerationAttempts >= maxAiAttempts) {
                         throw parseError; // Final attempt failed, throw error to trigger fallback
@@ -662,6 +669,7 @@ Provide the output in the following JSON format:
                 
             } catch (aiError) {
                 console.error(`AI generation attempt ${aiGenerationAttempts} failed:`, aiError.message);
+                console.error('CRITICAL: Gemini API error - check API key configuration and quota limits');
                 
                 if (aiGenerationAttempts >= maxAiAttempts) {
                     // All AI attempts failed, trigger fallback

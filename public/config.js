@@ -15,7 +15,8 @@ const CONFIG = {
 
 // Helper function to get full API URL
 function getApiUrl(endpoint = '') {
-    if (!CONFIG.BACKEND_DEPLOYED) {
+    // Allow local development, but require deployment for production
+    if (!CONFIG.BACKEND_DEPLOYED && CONFIG.IS_PRODUCTION) {
         throw new Error('Backend deployment required. Please see BACKEND_DEPLOYMENT_GITHUB.md for instructions.');
     }
     return `${CONFIG.API_BASE_URL}${endpoint}`;
@@ -23,7 +24,8 @@ function getApiUrl(endpoint = '') {
 
 // Helper function to check if backend is available
 function isBackendAvailable() {
-    return CONFIG.BACKEND_DEPLOYED;
+    // Backend is available in development or when deployed in production
+    return CONFIG.IS_DEVELOPMENT || CONFIG.BACKEND_DEPLOYED;
 }
 
 // Helper function to show backend deployment message

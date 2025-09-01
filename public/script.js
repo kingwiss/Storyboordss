@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     async function checkAuthStatus() {
-        if (authToken) {
+        if (authToken && isBackendAvailable()) {
             try {
                 const response = await fetch(getApiUrl('/api/auth/me'), {
                     headers: {
@@ -252,6 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const password = document.getElementById('login-password').value;
         
         try {
+            if (!isBackendAvailable()) {
+                showError(loginError, showBackendMessage());
+                return;
+            }
+            
             const response = await fetch(getApiUrl('/api/auth/login'), {
                 method: 'POST',
                 headers: {
@@ -300,6 +305,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         try {
+            if (!isBackendAvailable()) {
+                showError(signupError, showBackendMessage());
+                return;
+            }
+            
             const response = await fetch(getApiUrl('/api/auth/register'), {
                 method: 'POST',
                 headers: {

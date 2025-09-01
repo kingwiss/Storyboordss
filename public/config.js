@@ -3,7 +3,7 @@ const CONFIG = {
     // API Base URL - change this for production deployment
     API_BASE_URL: window.location.hostname === 'localhost' 
         ? 'http://localhost:3001'
-        : 'https://ai-article-audiobook-backend-production.up.railway.app', // Railway deployment URL
+        : 'https://storyboordss-production.up.railway.app', // Railway deployment URL
     
     // Environment detection
     IS_DEVELOPMENT: window.location.hostname === 'localhost',

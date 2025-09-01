@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Articles - AI Article Audiobook</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="header-content">
+                <h1>AI Article Audiobook</h1>
+                <button class="mobile-menu-toggle" aria-expanded="false" aria-label="Toggle navigation menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <nav class="main-navigation">
+                    <a href="index.html" class="nav-link">
+                        <i class="fas fa-home"></i>
+                        <span>Home</span>
+                    </a>
+                    <a href="my-articles.html" class="nav-link active">
+                        <i class="fas fa-book"></i>
+                        <span>My Articles</span>
+                    </a>
+                    <a href="#" id="current-article-nav" class="nav-link" style="display: none;">
+                        <i class="fas fa-play-circle"></i>
+                        <span>Current Article</span>
+                    </a>
+                </nav>
+                <div class="header-controls">
+                    <button id="music-toggle" class="music-toggle" title="Toggle ambient music">
+                        <i class="fas fa-music"></i>
+                    </button>
+                </div>
+                <div id="auth-section">
+                    <div id="auth-buttons" class="auth-logged-out">
+                        <button id="login-btn" class="auth-btn">Login</button>
+                        <button id="signup-btn" class="auth-btn">Sign Up</button>
+                    </div>
+                    <div id="user-info" class="auth-logged-in" style="display: none;">
+                        <span id="welcome-text">Welcome, <span id="username"></span>!</span>
+                        <button id="profile-btn" class="auth-btn">Profile</button>
+                        <button id="logout-btn" class="auth-btn">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <main>
+            <div class="page-header">
+                <h2>My Articles</h2>
+                <p class="page-description">Manage and listen to your generated audiobooks</p>
+            </div>
+            
+            <!-- Return to Article Button -->
+            <div id="return-to-article-container" class="return-to-article-container" style="display: none;">
+                <button id="return-to-article-btn" class="return-to-article-btn">
+                    <i class="fas fa-arrow-left"></i>
+                    <div class="button-content">
+                        <div class="button-title">Return to Article</div>
+                        <div id="article-title-display" class="article-title">Continue reading...</div>
+                    </div>
+                </button>
+            </div>
+            
+            <!-- Articles Container -->
+            <div id="articles-container" class="articles-grid">
+                <!-- Articles will be loaded here -->
+            </div>
+            
+            <!-- Empty State -->
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <div class="empty-icon">📚</div>
+                <h3>No Articles Yet</h3>
+                <p>You haven't generated any audiobooks yet. <a href="index.html">Create your first one!</a></p>
+            </div>
+            
+            <!-- Loading State -->
+            <div id="loading-state" class="loading-state" style="display: none;">
+                <div class="spinner"></div>
+                <p>Loading your articles...</p>
+            </div>
+            
+
+        </main>
+    </div>
+
+
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Login</h2>
+                <span class="close" id="login-close">&times;</span>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-email">Email:</label>
+                    <input type="email" id="login-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password:</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="primary-btn">Login</button>
+                    <button type="button" id="switch-to-signup" class="secondary-btn">Don't have an account? Sign up</button>
+                </div>
+            </form>
+            <div id="login-error" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Signup Modal -->
+    <div id="signup-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Sign Up</h2>
+                <span class="close" id="signup-close">&times;</span>
+            </div>
+            <form id="signup-form">
+                <div class="form-group">
+                    <label for="signup-username">Username:</label>
+                    <input type="text" id="signup-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-email">Email:</label>
+                    <input type="email" id="signup-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-password">Password:</label>
+                    <input type="password" id="signup-password" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="signup-confirm-password">Confirm Password:</label>
+                    <input type="password" id="signup-confirm-password" required minlength="6">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="primary-btn">Sign Up</button>
+                    <button type="button" id="switch-to-login" class="secondary-btn">Already have an account? Login</button>
+                </div>
+            </form>
+            <div id="signup-error" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div id="profile-modal" class="modal">
+        <div class="modal-content profile-modal-content">
+            <div class="modal-header">
+                <h2>User Profile</h2>
+                <span class="close" id="close-profile-modal">&times;</span>
+            </div>
+            <div class="profile-container">
+                <!-- Profile Navigation -->
+                <div class="profile-nav">
+                    <button class="profile-nav-tab active" data-tab="my-information">
+                        <i class="fas fa-user"></i>
+                        <span>My Information</span>
+                    </button>
+                    <button class="profile-nav-tab" data-tab="preferences">
+                        <i class="fas fa-cog"></i>
+                        <span>Preferences</span>
+                    </button>
+                </div>
+
+                <!-- Profile Content Area -->
+                <div class="profile-content-area">
+                    <!-- My Information Tab -->
+                    <div id="my-information" class="profile-tab-content active">
+                        <div class="tab-header">
+                            <h3>My Information</h3>
+                            <p class="tab-description">View and manage your account information</p>
+                        </div>
+                        <div class="info-cards">
+                            <div class="info-card">
+                                <div class="card-header">
+                                    <div class="card-icon">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <h4 class="card-title">Account Details</h4>
+                                </div>
+                                <div class="info-details">
+                                    <div class="info-item">
+                                        <span class="info-label"><i class="fas fa-user"></i> Username:</span>
+                                        <span class="info-value" id="profile-username">--</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label"><i class="fas fa-envelope"></i> Email:</span>
+                                        <span class="info-value" id="profile-email">--</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label"><i class="fas fa-calendar"></i> Member Since:</span>
+                                        <span class="info-value" id="profile-member-since">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="card-header">
+                                    <div class="card-icon">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </div>
+                                    <h4 class="card-title">Statistics</h4>
+                                </div>
+                                <div class="info-details">
+                                    <div class="info-item">
+                                        <span class="info-label"><i class="fas fa-newspaper"></i> Total Articles:</span>
+                                        <span class="info-value" id="profile-total-articles">0</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label"><i class="fas fa-clock"></i> Last Activity:</span>
+                                        <span class="info-value" id="profile-last-activity">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preferences Tab -->
+                    <div id="preferences" class="profile-tab-content">
+                        <div class="tab-header">
+                            <h3>Preferences</h3>
+                            <p class="tab-description">Customize your experience</p>
+                        </div>
+                        <div class="preferences-container">
+                            <div class="preferences-section">
+                                <div class="section-header">
+                                    <div class="section-icon">
+                                        <i class="fas fa-palette"></i>
+                                    </div>
+                                    <h4 class="section-title">Appearance</h4>
+                                </div>
+                                <div class="preference-group">
+                                    <label class="preference-label">
+                                        <i class="fas fa-moon"></i>
+                                        Theme
+                                    </label>
+                                    <p class="preference-description">Choose your preferred theme</p>
+                                    <select id="theme-select" class="preference-select">
+                                        <option value="light">Light Theme</option>
+                                        <option value="dark">Dark Theme</option>
+                                        <option value="auto">Auto (System)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="preferences-section">
+                                <div class="section-header">
+                                    <div class="section-icon">
+                                        <i class="fas fa-volume-up"></i>
+                                    </div>
+                                    <h4 class="section-title">Audio Settings</h4>
+                                </div>
+                                <div class="preference-group">
+                                    <label class="preference-label">
+                                        <i class="fas fa-tachometer-alt"></i>
+                                        Speech Rate
+                                    </label>
+                                    <p class="preference-description">Adjust the speed of text-to-speech</p>
+                                    <select id="speech-rate-select" class="preference-select">
+                                        <option value="0.5">0.5x (Slow)</option>
+                                        <option value="0.75">0.75x</option>
+                                        <option value="1" selected>1x (Normal)</option>
+                                        <option value="1.25">1.25x</option>
+                                        <option value="1.5">1.5x (Fast)</option>
+                                        <option value="2">2x (Very Fast)</option>
+                                    </select>
+                                </div>
+                                <div class="preference-group">
+                                    <label class="preference-label">
+                                        <i class="fas fa-microphone"></i>
+                                        Speech Voice
+                                    </label>
+                                    <p class="preference-description">Choose your preferred voice (click microphone to preview)</p>
+                                    <div class="voice-selection-container">
+                                        <select id="speech-voice-select" class="preference-select" style="display: none;">
+                                            <option value="default">Default Voice</option>
+                                        </select>
+                                        <div id="voice-options-list" class="voice-options-list">
+                                            <!-- Voice options will be populated dynamically -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="preferences-actions">
+                                <button id="save-preferences" class="preferences-btn primary">
+                                    <i class="fas fa-save"></i>
+                                    Save Preferences
+                                </button>
+                                <button id="reset-preferences" class="preferences-btn secondary">
+                                    <i class="fas fa-undo"></i>
+                                    Reset to Default
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="theme-utils.js"></script>
+    <script src="real-music-player.js"></script>
+    <script src="persistent-music.js"></script>
+    <script src="floating-tts-tracker.js"></script>
+    <script src="touch-gestures.js"></script>
+    <script src="my-articles.js"></script>
+</body>
+</html>

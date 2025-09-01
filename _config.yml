@@ -1,0 +1,36 @@
+# GitHub Pages configuration
+title: AI Article Audiobook
+description: An intelligent web application that converts articles into immersive audiobooks with AI-generated images, summaries, and text-to-speech.
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+
+# Exclude files from processing
+exclude:
+  - backend/
+  - node_modules/
+  - package*.json
+  - README.md
+  - .gitignore
+  - .github/
+  - live-server.json
+  - middleware.js
+
+# Include files that start with underscores
+include:
+  - _config.yml
+
+# Plugins
+plugins:
+  - jekyll-sitemap
+  - jekyll-feed
+
+# Site settings
+url: "https://kingwiss.github.io"
+baseurl: "/Storyboords"
+
+# GitHub Pages specific
+github:
+  repository_name: Storyboords
+  repository_url: https://github.com/kingwiss/Storyboords

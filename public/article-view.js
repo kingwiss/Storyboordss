@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         try {
-            const response = await fetch('/api/user/profile', {
+            const response = await fetch(getApiUrl('/api/user/profile'), {
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
                     'Content-Type': 'application/json'
@@ -241,7 +241,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadLatestArticle(autoplay = false) {
         try {
-            const response = await fetch('/api/user/audiobooks/latest', {
+            const response = await fetch(getApiUrl('/api/user/audiobooks/latest'), {
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
                     'Content-Type': 'application/json'
@@ -280,7 +280,7 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('currentArticleId', articleId);
         
         try {
-            const response = await fetch(`/api/user/audiobooks/${articleId}`, {
+            const response = await fetch(getApiUrl(`/api/user/audiobooks/${articleId}`), {
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
                     'Content-Type': 'application/json'
@@ -808,7 +808,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load user preferences from server
     async function loadUserPreferences() {
         try {
-            const response = await fetch('/api/user/preferences', {
+            const response = await fetch(getApiUrl('/api/user/preferences'), {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
@@ -842,7 +842,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const voiceName = selectedVoice.name;
             localStorage.setItem('preferredVoice', voiceName);
             
-            await fetch('/api/user/preferences', {
+            await fetch(getApiUrl('/api/user/preferences'), {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
@@ -1507,7 +1507,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const password = document.getElementById('login-password').value;
             
             try {
-                const response = await fetch('/api/auth/login', {
+                const response = await fetch(getApiUrl('/api/auth/login'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -1560,7 +1560,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             try {
-                const response = await fetch('/api/auth/register', {
+                const response = await fetch(getApiUrl('/api/auth/register'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

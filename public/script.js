@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function checkAuthStatus() {
         if (authToken) {
             try {
-                const response = await fetch('/api/auth/me', {
+                const response = await fetch(getApiUrl('/api/auth/me'), {
                     headers: {
                         'Authorization': `Bearer ${authToken}`
                     },
@@ -252,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const password = document.getElementById('login-password').value;
         
         try {
-            const response = await fetch('/api/auth/login', {
+            const response = await fetch(getApiUrl('/api/auth/login'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         try {
-            const response = await fetch('/api/auth/register', {
+            const response = await fetch(getApiUrl('/api/auth/register'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -342,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = document.getElementById('forgot-email').value;
             
             try {
-                const response = await fetch('/api/auth/forgot-password', {
+                const response = await fetch(getApiUrl('/api/auth/forgot-password'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -382,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             try {
-                const response = await fetch('/api/auth/reset-password', {
+                const response = await fetch(getApiUrl('/api/auth/reset-password'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -511,7 +511,7 @@ function loadProfileStatistics() {
     const token = localStorage.getItem('authToken');
     if (!token) return;
 
-    fetch('/api/user/audiobooks', {
+    fetch(getApiUrl('/api/user/audiobooks'), {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -695,7 +695,7 @@ class MyArticlesManager {
         this.showState('articlesLoading');
         
         try {
-            const response = await fetch('/api/user/audiobooks', {
+            const response = await fetch(getApiUrl('/api/user/audiobooks'), {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -1028,7 +1028,7 @@ function loadUserPreferences() {
         return;
     }
 
-    fetch('/api/user/preferences', {
+    fetch(getApiUrl('/api/user/preferences'), {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -1613,7 +1613,7 @@ function escapeHtml(text) {
         }
         
         // Set up Server-Sent Events for progress updates
-        currentEventSource = new EventSource(`/api/generate-progress/${sessionId}`);
+        currentEventSource = new EventSource(getApiUrl(`/api/generate-progress/${sessionId}`));
         
         currentEventSource.onmessage = function(event) {
             const data = JSON.parse(event.data);
@@ -1627,7 +1627,7 @@ function escapeHtml(text) {
         };
 
         try {
-            const response = await fetch('/api/generate', {
+            const response = await fetch(getApiUrl('/api/generate'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2355,7 +2355,7 @@ function updateNavigationActiveState() {
 // Enhanced article regeneration function
 function regenerateArticle(articleId) {
     // Get the article data
-    fetch(`/api/articles/${articleId}`, {
+    fetch(getApiUrl(`/api/articles/${articleId}`), {
         headers: {
             'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }

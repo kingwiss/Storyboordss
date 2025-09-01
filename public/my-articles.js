@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (authToken) {
             try {
                 console.log('=== DEBUG: Making request to /api/auth/me');
-                const response = await fetch('/api/auth/me', {
+                const response = await fetch(getApiUrl('/api/auth/me'), {
                     headers: {
                         'Authorization': `Bearer ${authToken}`
                     },
@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const password = document.getElementById('login-password').value;
             
             try {
-                const response = await fetch('/api/auth/login', {
+                const response = await fetch(getApiUrl('/api/auth/login'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             try {
-                const response = await fetch('/api/auth/register', {
+                const response = await fetch(getApiUrl('/api/auth/register'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -374,7 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         try {
             console.log('=== DEBUG: Making request to /api/user/audiobooks');
-            const response = await fetch('/api/user/audiobooks', {
+            const response = await fetch(getApiUrl('/api/user/audiobooks'), {
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
                     'Content-Type': 'application/json'
@@ -568,7 +568,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
-            const response = await fetch(`/api/user/audiobooks/${articleId}`, {
+            const response = await fetch(getApiUrl(`/api/user/audiobooks/${articleId}`), {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
@@ -687,7 +687,7 @@ function loadProfileStatistics() {
     const token = localStorage.getItem('authToken');
     if (!token) return;
 
-    fetch('/api/user/audiobooks', {
+    fetch(getApiUrl('/api/user/audiobooks'), {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -744,7 +744,7 @@ function loadUserPreferences() {
         return;
     }
 
-    fetch('/api/user/preferences', {
+    fetch(getApiUrl('/api/user/preferences'), {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -995,7 +995,7 @@ function saveUserPreferences() {
         speech_voice: speechVoiceSelect ? speechVoiceSelect.value : 'default'
     };
 
-    fetch('/api/user/preferences', {
+    fetch(getApiUrl('/api/user/preferences'), {
         method: 'PUT',
         headers: {
             'Authorization': `Bearer ${token}`,

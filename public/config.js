@@ -3,14 +3,14 @@ const CONFIG = {
     // API Base URL - change this for production deployment
     API_BASE_URL: window.location.hostname === 'localhost' 
         ? 'http://localhost:3001'
-        : 'https://your-backend-url.railway.app', // Replace with actual Railway URL after deployment
+        : 'https://ai-article-audiobook-backend-production.up.railway.app', // Railway deployment URL
     
     // Environment detection
     IS_DEVELOPMENT: window.location.hostname === 'localhost',
     IS_PRODUCTION: window.location.hostname !== 'localhost',
     
-    // Backend deployment status
-    BACKEND_DEPLOYED: false // Set to true after backend deployment
+    // Backend deployment status - temporarily set to true for testing
+    BACKEND_DEPLOYED: true // Set to true after backend deployment
 };
 
 // Helper function to get full API URL

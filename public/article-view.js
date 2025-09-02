@@ -23,6 +23,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const keyPointsList = document.getElementById('key-points-list');
     const articleImagesSection = document.getElementById('article-images-section');
     const keyPointsSection = document.getElementById('key-points-section');
+    
+    // Carousel elements
+    const imageCarouselContainer = document.getElementById('image-carousel-container');
+    const carouselTrack = document.getElementById('carousel-track');
+    const carouselPrevBtn = document.getElementById('carousel-prev');
+    const carouselNextBtn = document.getElementById('carousel-next');
+    const carouselIndicators = document.getElementById('carousel-indicators');
+    
+    // Carousel state
+    let currentSlide = 0;
+    let totalSlides = 0;
 
     // Modal elements
     const loginModal = document.getElementById('login-modal');
@@ -373,16 +384,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const summary = article.summary || 'No summary available';
         articleSummary.innerHTML = `<p>${escapeHtml(summary)}</p>`;
 
-        // Display images
+        // Display images in carousel
         const imageUrls = article.image_urls || article.imageUrls || [];
         if (imageUrls.length > 0) {
-            imageGallery.innerHTML = imageUrls.map(url => 
-                `<img src="${escapeHtml(url)}" alt="Article image" class="article-image">`
-            ).join('');
-            articleImagesSection.style.display = 'block';
+            displayImageCarousel(imageUrls);
         } else {
-            articleImagesSection.style.display = 'none';
+            imageCarouselContainer.style.display = 'none';
         }
+        
+        // Keep legacy gallery hidden
+        articleImagesSection.style.display = 'none';
 
         // Display key points
         const keyPoints = article.key_points || article.keyPoints || [];
@@ -402,6 +413,269 @@ document.addEventListener('DOMContentLoaded', function() {
         return paragraphs.map(paragraph => 
             `<p>${escapeHtml(paragraph.trim())}</p>`
         ).join('');
+    }
+    
+    function displayImageCarousel(imageUrls) {
+        if (!imageUrls || imageUrls.length === 0) {
+            imageCarouselContainer.style.display = 'none';
+            return;
+        }
+        
+        totalSlides = imageUrls.length;
+        currentSlide = 0;
+        
+        // Create carousel slides
+        carouselTrack.innerHTML = imageUrls.map((url, index) => 
+            `<div class="carousel-slide">
+                <img src="${escapeHtml(url)}" alt="Article image ${index + 1}" class="carousel-image">
+            </div>`
+        ).join('');
+        
+        // Create indicators
+        carouselIndicators.innerHTML = imageUrls.map((_, index) => 
+            `<button class="carousel-indicator ${index === 0 ? 'active' : ''}" data-slide="${index}"></button>`
+        ).join('');
+        
+        // Show carousel
+        imageCarouselContainer.style.display = 'block';
+        
+        // Add event listeners
+        setupCarouselControls();
+        
+        // Update carousel display
+        updateCarouselPosition();
+    }
+    
+    function setupCarouselControls() {
+        // Remove existing event listeners by cloning elements
+        const newPrevBtn = carouselPrevBtn.cloneNode(true);
+        const newNextBtn = carouselNextBtn.cloneNode(true);
+        carouselPrevBtn.parentNode.replaceChild(newPrevBtn, carouselPrevBtn);
+        carouselNextBtn.parentNode.replaceChild(newNextBtn, carouselNextBtn);
+        
+        // Update references
+        const prevBtn = document.getElementById('carousel-prev');
+        const nextBtn = document.getElementById('carousel-next');
+        
+        // Previous button
+        prevBtn.addEventListener('click', () => {
+            currentSlide = currentSlide > 0 ? currentSlide - 1 : totalSlides - 1;
+            updateCarouselPosition();
+        });
+        
+        // Next button
+        nextBtn.addEventListener('click', () => {
+            currentSlide = currentSlide < totalSlides - 1 ? currentSlide + 1 : 0;
+            updateCarouselPosition();
+        });
+        
+        // Indicator buttons
+        const indicators = carouselIndicators.querySelectorAll('.carousel-indicator');
+        indicators.forEach((indicator, index) => {
+            indicator.addEventListener('click', () => {
+                currentSlide = index;
+                updateCarouselPosition();
+            });
+        });
+        
+        // Add touch swipe functionality
+        setupCarouselTouchEvents();
+        
+        // Hide navigation buttons if only one image
+        if (totalSlides <= 1) {
+            prevBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+            carouselIndicators.style.display = 'none';
+        } else {
+            prevBtn.style.display = 'flex';
+            nextBtn.style.display = 'flex';
+            carouselIndicators.style.display = 'flex';
+        }
+    }
+    
+    function updateCarouselPosition() {
+        // Move carousel track - account for gap spacing
+        // Each slide is calc(100% - 10px) wide with 10px gap
+        const slideWidth = 100; // percentage
+        const gapAdjustment = (10 / carouselTrack.offsetWidth) * 100; // convert 10px gap to percentage
+        const translateX = -currentSlide * (slideWidth + gapAdjustment);
+        carouselTrack.style.transform = `translateX(${translateX}%)`;
+        
+        // Update indicators
+        const indicators = carouselIndicators.querySelectorAll('.carousel-indicator');
+        indicators.forEach((indicator, index) => {
+            indicator.classList.toggle('active', index === currentSlide);
+        });
+    }
+    
+    function setupCarouselTouchEvents() {
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let touchStartY = 0;
+        let touchEndY = 0;
+        let touchMoveX = 0;
+        let touchStartTime = 0;
+        let isDragging = false;
+        let initialTransform = 0;
+        
+        // Enhanced sensitivity settings
+        const minSwipeDistance = 30; // Reduced for better sensitivity
+        const maxVerticalDistance = 150; // Increased tolerance for vertical movement
+        const velocityThreshold = 0.3; // Minimum velocity for momentum swipe
+        const dragThreshold = 10; // Minimum movement to start dragging
+        
+        // Try multiple selectors to ensure we get the carousel element
+        const carousel = document.getElementById('image-carousel') || document.getElementById('image-carousel-container');
+        const carouselTrack = document.getElementById('carousel-track');
+        
+        if (!carousel || !carouselTrack) {
+            console.warn('Carousel elements not found for touch events');
+            return;
+        }
+        
+        console.log('Setting up enhanced touch events on carousel:', carousel.id);
+        
+        // Remove any existing touch event listeners
+        carousel.removeEventListener('touchstart', handleTouchStart);
+        carousel.removeEventListener('touchmove', handleTouchMove);
+        carousel.removeEventListener('touchend', handleTouchEnd);
+        carousel.removeEventListener('touchcancel', handleTouchEnd);
+        
+        // Touch start event handler
+        function handleTouchStart(event) {
+            touchStartX = event.changedTouches[0].clientX;
+            touchStartY = event.changedTouches[0].clientY;
+            touchMoveX = touchStartX;
+            touchStartTime = Date.now();
+            isDragging = false;
+            
+            // Get current transform value
+            const transform = carouselTrack.style.transform;
+            const match = transform.match(/translateX\(([^)]+)\)/);
+            initialTransform = match ? parseFloat(match[1]) : 0;
+            
+            // Add visual feedback - slight scale down
+            carousel.style.transition = 'transform 0.1s ease';
+            carousel.style.transform = 'scale(0.98)';
+        }
+        
+        // Touch move event handler for real-time dragging
+        function handleTouchMove(event) {
+            if (!touchStartX) return;
+            
+            touchMoveX = event.changedTouches[0].clientX;
+            const deltaX = touchMoveX - touchStartX;
+            const deltaY = event.changedTouches[0].clientY - touchStartY;
+            const absDeltaX = Math.abs(deltaX);
+            const absDeltaY = Math.abs(deltaY);
+            
+            // Start dragging if movement exceeds threshold
+            if (!isDragging && absDeltaX > dragThreshold) {
+                isDragging = true;
+                event.preventDefault();
+            }
+            
+            // If dragging horizontally, prevent vertical scroll and show live preview
+            if (isDragging && absDeltaX > absDeltaY) {
+                event.preventDefault();
+                
+                // Calculate drag resistance (stronger at boundaries)
+                let dragResistance = 1;
+                if ((currentSlide === 0 && deltaX > 0) || (currentSlide === totalSlides - 1 && deltaX < 0)) {
+                    dragResistance = 0.3; // Reduce movement at boundaries
+                }
+                
+                // Apply real-time transform with drag resistance
+                const dragOffset = deltaX * dragResistance * 0.5; // Reduce sensitivity for smoother feel
+                const newTransform = initialTransform + (dragOffset / carouselTrack.offsetWidth) * 100;
+                carouselTrack.style.transition = 'none';
+                carouselTrack.style.transform = `translateX(${newTransform}%)`;
+            }
+        }
+        
+        // Touch end event handler
+        function handleTouchEnd(event) {
+            if (!touchStartX) return;
+            
+            touchEndX = event.changedTouches[0].clientX;
+            const touchEndY = event.changedTouches[0].clientY;
+            const touchEndTime = Date.now();
+            
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+            const absDeltaX = Math.abs(deltaX);
+            const absDeltaY = Math.abs(deltaY);
+            const touchDuration = touchEndTime - touchStartTime;
+            const velocity = absDeltaX / touchDuration; // pixels per millisecond
+            
+            // Remove visual feedback
+            carousel.style.transition = 'transform 0.2s ease';
+            carousel.style.transform = 'scale(1)';
+            
+            // Reset transform transition for smooth animation
+            carouselTrack.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            
+            let shouldSwipe = false;
+            
+            // Check for swipe conditions
+            if (isDragging && absDeltaY < maxVerticalDistance) {
+                // High velocity swipe (momentum-based)
+                if (velocity > velocityThreshold) {
+                    shouldSwipe = true;
+                }
+                // Distance-based swipe
+                else if (absDeltaX > minSwipeDistance) {
+                    shouldSwipe = true;
+                }
+                // Drag-based swipe (moved more than 25% of container width)
+                else if (absDeltaX > carouselTrack.offsetWidth * 0.25) {
+                    shouldSwipe = true;
+                }
+            }
+            
+            if (shouldSwipe) {
+                event.preventDefault();
+                
+                if (deltaX > 0) {
+                    // Swipe right - go to previous slide
+                    currentSlide = currentSlide > 0 ? currentSlide - 1 : totalSlides - 1;
+                } else {
+                    // Swipe left - go to next slide
+                    currentSlide = currentSlide < totalSlides - 1 ? currentSlide + 1 : 0;
+                }
+                
+                // Add haptic feedback if available
+                if (navigator.vibrate) {
+                    navigator.vibrate(10);
+                }
+            }
+            
+            // Always update position to ensure proper alignment
+            updateCarouselPosition();
+            
+            // Reset touch variables
+            touchStartX = 0;
+            touchEndX = 0;
+            touchStartY = 0;
+            touchMoveX = 0;
+            isDragging = false;
+        }
+        
+        // Add touch event listeners with proper options
+        carousel.addEventListener('touchstart', handleTouchStart, { passive: true });
+        carousel.addEventListener('touchmove', handleTouchMove, { passive: false });
+        carousel.addEventListener('touchend', handleTouchEnd, { passive: false });
+        carousel.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+        
+        // Prevent context menu on long press for better UX
+        carousel.addEventListener('contextmenu', function(event) {
+            event.preventDefault();
+        });
+        
+        // Add pointer events for better cross-device support
+        if (window.PointerEvent) {
+            carousel.style.touchAction = 'pan-y pinch-zoom';
+        }
     }
 
     function showArticleNotFound() {

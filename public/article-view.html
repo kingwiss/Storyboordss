@@ -79,6 +79,24 @@
                 </div>
             </header>
 
+            <!-- Image Carousel -->
+            <div class="image-carousel-container" id="image-carousel-container" style="display: none;">
+                <div class="image-carousel" id="image-carousel">
+                    <div class="carousel-track" id="carousel-track">
+                        <!-- Images will be inserted here by JavaScript -->
+                    </div>
+                    <button class="carousel-btn carousel-btn-prev" id="carousel-prev">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="carousel-btn carousel-btn-next" id="carousel-next">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <div class="carousel-indicators" id="carousel-indicators">
+                        <!-- Indicators will be inserted here by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
             <!-- Audio Controls -->
             <div class="audio-controls-section" id="audio-controls-section" style="display: none;">
                 <div class="audio-controls">
@@ -127,6 +145,7 @@
                     <div class="article-full-text" id="article-full-text"></div>
                 </section>
 
+                <!-- Legacy image gallery section - kept for backward compatibility but hidden -->
                 <section class="article-images-section" id="article-images-section" style="display: none;">
                     <h2>
                         <i class="fas fa-images"></i>

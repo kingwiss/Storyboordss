@@ -25,7 +25,7 @@ const corsOptions = {
             'https://fredwesselink.github.io', // GitHub Pages URL
             /\.github\.io$/ // Allow any GitHub Pages subdomain
           ]
-        : ['http://localhost:3000', 'http://localhost:3001'],
+        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']

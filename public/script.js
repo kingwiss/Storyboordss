@@ -32,50 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUser = null;
     let authToken = localStorage.getItem('authToken');
     
-    // Mobile menu functionality
-    const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
-    const headerNav = document.querySelector('header nav');
-    
-    if (mobileMenuToggle && headerNav) {
-        mobileMenuToggle.addEventListener('click', () => {
-            headerNav.classList.toggle('mobile-menu-open');
-            
-            // Update aria-expanded for accessibility
-            const isOpen = headerNav.classList.contains('mobile-menu-open');
-            mobileMenuToggle.setAttribute('aria-expanded', isOpen);
-            
-            // Change icon based on state
-            const icon = mobileMenuToggle.querySelector('i');
-            if (icon) {
-                icon.className = isOpen ? 'fas fa-times' : 'fas fa-bars';
-            }
-        });
-        
-        // Close mobile menu when clicking on nav links
-        const navLinks = headerNav.querySelectorAll('a');
-        navLinks.forEach(link => {
-            link.addEventListener('click', () => {
-                headerNav.classList.remove('mobile-menu-open');
-                mobileMenuToggle.setAttribute('aria-expanded', 'false');
-                const icon = mobileMenuToggle.querySelector('i');
-                if (icon) {
-                    icon.className = 'fas fa-bars';
-                }
-            });
-        });
-        
-        // Close mobile menu when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!headerNav.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
-                headerNav.classList.remove('mobile-menu-open');
-                mobileMenuToggle.setAttribute('aria-expanded', 'false');
-                const icon = mobileMenuToggle.querySelector('i');
-                if (icon) {
-                    icon.className = 'fas fa-bars';
-                }
-            }
-        });
-    }
+
     
     // Authentication functions
     function showError(element, message) {
@@ -88,13 +45,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateAuthUI() {
+        console.log('updateAuthUI called - currentUser:', currentUser);
+        console.log('authButtons element:', authButtons);
+        console.log('userInfo element:', userInfo);
+        
         if (currentUser) {
-            if (authButtons) authButtons.style.display = 'none';
-            if (userInfo) userInfo.style.display = 'flex';
-            if (usernameSpan) usernameSpan.textContent = currentUser.username;
+            console.log('User is logged in, hiding auth buttons and showing user info');
+            if (authButtons) {
+                authButtons.style.display = 'none';
+                console.log('Auth buttons hidden');
+            }
+            if (userInfo) {
+                userInfo.style.display = 'flex';
+                console.log('User info shown');
+            }
+            if (usernameSpan) {
+                usernameSpan.textContent = currentUser.username;
+                console.log('Username set to:', currentUser.username);
+            }
         } else {
-            if (authButtons) authButtons.style.display = 'flex';
-            if (userInfo) userInfo.style.display = 'none';
+            console.log('User is not logged in, showing auth buttons and hiding user info');
+            if (authButtons) {
+                authButtons.style.display = 'flex';
+                console.log('Auth buttons shown');
+            }
+            if (userInfo) {
+                userInfo.style.display = 'none';
+                console.log('User info hidden');
+            }
         }
     }
     
@@ -112,6 +90,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await response.json();
                     currentUser = data.user;
                     updateAuthUI();
+                    
+                    // Check if user needs to set up security code (only once per session)
+                    if (currentUser && !currentUser.hasSecurityCode && !sessionStorage.getItem('profileSetupPrompted')) {
+                        sessionStorage.setItem('profileSetupPrompted', 'true');
+                        showProfileSetupModal();
+                    }
                 } else {
                     // Token is invalid, remove it
                     localStorage.removeItem('authToken');
@@ -133,26 +117,45 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Modal functions
     function openModal(modal) {
-        modal.style.display = 'block';
+        console.log('openModal called with:', modal);
+        if (modal) {
+            modal.style.display = 'block';
+            console.log('Modal display set to block');
+        } else {
+            console.error('Modal element is null or undefined');
+        }
     }
     
     function closeModal(modal) {
-        modal.style.display = 'none';
+        console.log('closeModal called with:', modal);
+        if (modal) {
+            modal.style.display = 'none';
+        }
     }
     
     // Authentication event listeners (with null checks)
     if (loginBtn && loginModal && loginError) {
-        loginBtn.addEventListener('click', () => {
+        console.log('Login button event listener attached');
+        loginBtn.addEventListener('click', (e) => {
+            console.log('Login button clicked!');
+            e.preventDefault();
             hideError(loginError);
             openModal(loginModal);
         });
+    } else {
+        console.error('Login elements missing:', { loginBtn, loginModal, loginError });
     }
     
     if (signupBtn && signupModal && signupError) {
-        signupBtn.addEventListener('click', () => {
+        console.log('Signup button event listener attached');
+        signupBtn.addEventListener('click', (e) => {
+            console.log('Signup button clicked!');
+            e.preventDefault();
             hideError(signupError);
             openModal(signupModal);
         });
+    } else {
+        console.error('Signup elements missing:', { signupBtn, signupModal, signupError });
     }
     
     // Profile functionality removed - will be rebuilt from scratch
@@ -160,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
             localStorage.removeItem('authToken');
+            sessionStorage.removeItem('profileSetupPrompted');
             authToken = null;
             currentUser = null;
             updateAuthUI();
@@ -275,6 +279,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateAuthUI();
                 closeModal(loginModal);
                 loginForm.reset();
+                
+                // Show profile setup modal if user doesn't have a security code
+                if (!currentUser.hasSecurityCode) {
+                    showProfileSetupModal();
+                }
             } else {
                 showError(loginError, data.error || 'Login failed');
             }
@@ -286,6 +295,94 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             showError(loginError, `Network error: ${error.message}. Please check console for details.`);
         }
+        });
+    }
+    
+    // Password validation functions
+    function validatePassword(password) {
+        const requirements = {
+            length: password.length >= 8,
+            capital: /[A-Z]/.test(password),
+            special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+        };
+        return requirements;
+    }
+    
+    function updatePasswordRequirements(password) {
+        const requirements = validatePassword(password);
+        
+        const lengthReq = document.getElementById('length-req');
+        const capitalReq = document.getElementById('capital-req');
+        const specialReq = document.getElementById('special-req');
+        
+        if (lengthReq) {
+            lengthReq.className = requirements.length ? 'requirement valid' : 'requirement invalid';
+        }
+        if (capitalReq) {
+            capitalReq.className = requirements.capital ? 'requirement valid' : 'requirement invalid';
+        }
+        if (specialReq) {
+            specialReq.className = requirements.special ? 'requirement valid' : 'requirement invalid';
+        }
+        
+        return requirements.length && requirements.capital && requirements.special;
+    }
+    
+    function updatePasswordMatch(password, confirmPassword) {
+        const passwordMatch = document.getElementById('password-match');
+        if (passwordMatch && confirmPassword) {
+            const isMatch = password === confirmPassword;
+            passwordMatch.style.display = 'flex';
+            passwordMatch.className = isMatch ? 'password-match valid' : 'password-match invalid';
+            passwordMatch.querySelector('.req-text').textContent = isMatch ? 'Passwords match' : 'Passwords must match';
+        }
+    }
+    
+    async function checkPasswordUniqueness(password) {
+        if (!password || password.length < 8) return;
+        
+        try {
+            const response = await fetch(getApiUrl('/api/auth/check-password'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ password })
+            });
+            
+            const data = await response.json();
+            const uniqueReq = document.getElementById('unique-req');
+            if (uniqueReq) {
+                uniqueReq.className = data.unique ? 'requirement valid' : 'requirement invalid';
+            }
+            return data.unique;
+        } catch (error) {
+            console.error('Password uniqueness check failed:', error);
+            return true; // Assume unique if check fails
+        }
+    }
+    
+    // Add password validation event listeners
+    const signupPassword = document.getElementById('signup-password');
+    const signupConfirmPassword = document.getElementById('signup-confirm-password');
+    
+    if (signupPassword) {
+        signupPassword.addEventListener('input', (e) => {
+            const password = e.target.value;
+            updatePasswordRequirements(password);
+            checkPasswordUniqueness(password);
+            
+            if (signupConfirmPassword && signupConfirmPassword.value) {
+                updatePasswordMatch(password, signupConfirmPassword.value);
+            }
+        });
+    }
+    
+    if (signupConfirmPassword) {
+        signupConfirmPassword.addEventListener('input', (e) => {
+            const confirmPassword = e.target.value;
+            const password = signupPassword ? signupPassword.value : '';
+            updatePasswordMatch(password, confirmPassword);
         });
     }
     
@@ -328,6 +425,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateAuthUI();
                 closeModal(signupModal);
                 signupForm.reset();
+                
+                // Show profile setup popup for security code
+                showProfileSetupModal();
             } else {
                 showError(signupError, data.error || 'Registration failed');
             }
@@ -350,26 +450,39 @@ document.addEventListener('DOMContentLoaded', () => {
             hideError(forgotPasswordSuccess);
             
             const email = document.getElementById('forgot-email').value;
+            const securityCode = document.getElementById('forgot-security-code').value;
+            
+            // Validate security code format
+            if (!securityCode || securityCode.length !== 6 || !/^[0-9]{6}$/.test(securityCode)) {
+                showError(forgotPasswordError, 'Please enter a valid 6-digit security code (numbers only)');
+                return;
+            }
             
             try {
-                const response = await fetch(getApiUrl('/api/auth/forgot-password'), {
+                const response = await fetch(getApiUrl('/api/auth/verify-security-code'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ email })
+                    body: JSON.stringify({ email, securityCode })
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok) {
-                    showError(forgotPasswordSuccess, 'Password reset email sent! Check your inbox for instructions.');
+                    // Store the reset token for the password reset form
+                    localStorage.setItem('resetToken', data.resetToken);
+                    
+                    // Close forgot password modal and open reset password modal
+                    closeModal(forgotPasswordModal);
+                    openModal(resetPasswordModal);
+                    
                     forgotPasswordForm.reset();
                 } else {
-                    showError(forgotPasswordError, data.error || 'Failed to send reset email');
+                    showError(forgotPasswordError, data.message || 'Invalid email or security code');
                 }
             } catch (error) {
-                console.error('Forgot password error:', error);
+                console.error('Security code verification error:', error);
                 showError(forgotPasswordError, 'Network error. Please try again.');
             }
         });
@@ -382,9 +495,14 @@ document.addEventListener('DOMContentLoaded', () => {
             hideError(resetPasswordError);
             hideError(resetPasswordSuccess);
             
-            const token = document.getElementById('reset-token').value;
+            const token = localStorage.getItem('resetToken');
             const password = document.getElementById('new-password').value;
             const confirmPassword = document.getElementById('confirm-new-password').value;
+            
+            if (!token) {
+                showError(resetPasswordError, 'Reset session expired. Please try the forgot password process again.');
+                return;
+            }
             
             if (password !== confirmPassword) {
                 showError(resetPasswordError, 'Passwords do not match');
@@ -405,6 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok) {
                     showError(resetPasswordSuccess, 'Password reset successful! You can now login with your new password.');
                     resetPasswordForm.reset();
+                    localStorage.removeItem('resetToken'); // Clean up the token
                     setTimeout(() => {
                         closeModal(resetPasswordModal);
                         openModal(loginModal);
@@ -419,6 +538,88 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Profile Setup Modal Functions
+function showProfileSetupModal() {
+    console.log('Showing profile setup modal...');
+    const profileSetupModal = document.getElementById('profile-setup-modal');
+    const profileSetupForm = document.getElementById('profile-setup-form');
+    const skipButton = document.getElementById('skip-security-code');
+    const closeButton = document.getElementById('close-profile-setup-modal');
+    const errorDiv = document.getElementById('profile-setup-error');
+    const successDiv = document.getElementById('profile-setup-success');
+    
+    if (profileSetupModal) {
+        profileSetupModal.style.display = 'block';
+        
+        // Handle form submission
+        if (profileSetupForm) {
+            profileSetupForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const securityCode = document.getElementById('security-code').value.trim();
+                
+                if (securityCode && securityCode.length === 6 && /^[0-9]{6}$/.test(securityCode)) {
+                    try {
+                        const response = await fetch('/api/auth/set-security-code', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            },
+                            body: JSON.stringify({ securityCode })
+                        });
+                        
+                        if (response.ok) {
+                            successDiv.textContent = 'Security code saved successfully!';
+                            successDiv.style.display = 'block';
+                            errorDiv.style.display = 'none';
+                            // Clear the session flag since user now has security code
+                            sessionStorage.removeItem('profileSetupPrompted');
+                            setTimeout(() => {
+                                profileSetupModal.style.display = 'none';
+                            }, 2000);
+                        } else {
+                            const data = await response.json();
+                            errorDiv.textContent = data.message || 'Failed to save security code';
+                            errorDiv.style.display = 'block';
+                            successDiv.style.display = 'none';
+                        }
+                    } catch (error) {
+                        console.error('Error saving security code:', error);
+                        errorDiv.textContent = 'Network error. Please try again.';
+                        errorDiv.style.display = 'block';
+                        successDiv.style.display = 'none';
+                    }
+                } else {
+                    errorDiv.textContent = 'Please enter a valid 6-digit code (numbers only)';
+                    errorDiv.style.display = 'block';
+                    successDiv.style.display = 'none';
+                }
+            });
+        }
+        
+        // Handle skip button
+        if (skipButton) {
+            skipButton.addEventListener('click', () => {
+                profileSetupModal.style.display = 'none';
+            });
+        }
+        
+        // Handle close button
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                profileSetupModal.style.display = 'none';
+            });
+        }
+        
+        // Close modal when clicking outside
+        profileSetupModal.addEventListener('click', (event) => {
+            if (event.target === profileSetupModal) {
+                profileSetupModal.style.display = 'none';
+            }
+        });
+    }
+}
+
     // Profile Modal Functions
 function initializeProfileModal() {
     const profileBtn = document.getElementById('profile-btn');
@@ -435,12 +636,20 @@ function initializeProfileModal() {
             // Load user preferences and populate voice selection
             loadUserPreferences();
             populateVoiceSelection();
+            // Start theme preview mode
+            if (window.themeManager) {
+                window.themeManager.startPreviewMode();
+            }
         });
     }
 
     // Close profile modal
     if (closeProfileModal) {
         closeProfileModal.addEventListener('click', () => {
+            // Cancel theme preview if in preview mode
+            if (window.themeManager && window.themeManager.isInPreviewMode()) {
+                window.themeManager.cancelPreview();
+            }
             profileModal.style.display = 'none';
         });
     }
@@ -448,6 +657,10 @@ function initializeProfileModal() {
     // Close modal when clicking outside
     window.addEventListener('click', (event) => {
         if (event.target === profileModal) {
+            // Cancel theme preview if in preview mode
+            if (window.themeManager && window.themeManager.isInPreviewMode()) {
+                window.themeManager.cancelPreview();
+            }
             profileModal.style.display = 'none';
         }
     });
@@ -1009,6 +1222,7 @@ function loadArticleIntoViewer(audiobook) {
 function initializePreferences() {
     const saveBtn = document.getElementById('save-preferences');
     const resetBtn = document.getElementById('reset-preferences');
+    const updateSecurityCodeBtn = document.getElementById('update-security-code');
     
     if (saveBtn) {
         saveBtn.addEventListener('click', saveUserPreferences);
@@ -1016,6 +1230,10 @@ function initializePreferences() {
     
     if (resetBtn) {
         resetBtn.addEventListener('click', resetUserPreferences);
+    }
+    
+    if (updateSecurityCodeBtn) {
+        updateSecurityCodeBtn.addEventListener('click', updateSecurityCode);
     }
 
     // Initialize voice selection when voices are ready
@@ -1111,14 +1329,14 @@ function saveUserPreferences() {
     .then(data => {
         if (data.message) {
             showNotification('Preferences saved successfully!', 'success');
-            // Apply theme if changed using ThemeManager
+            // Save the previewed theme permanently using ThemeManager
             if (window.themeManager) {
-                window.themeManager.setTheme(preferences.theme);
+                window.themeManager.savePreviewedTheme();
             } else {
                 applyTheme(preferences.theme);
+                // Store preferences in localStorage for immediate use
+                localStorage.setItem('userPreferences', JSON.stringify(preferences));
             }
-            // Store preferences in localStorage for immediate use
-            localStorage.setItem('userPreferences', JSON.stringify(preferences));
             // Store voice preference separately for article-view.js
             if (preferences.speech_voice && preferences.speech_voice !== 'default') {
                 localStorage.setItem('preferredVoice', preferences.speech_voice);
@@ -1380,6 +1598,59 @@ function resetUserPreferences() {
     showNotification('Preferences reset to default', 'info');
 }
 
+// Update security code
+async function updateSecurityCode() {
+    const securityCodeInput = document.getElementById('profile-security-code');
+    const statusIndicator = document.getElementById('security-code-indicator');
+    
+    if (!securityCodeInput) {
+        console.error('Security code input not found');
+        return;
+    }
+    
+    const securityCode = securityCodeInput.value.trim();
+    
+    // Validate security code format
+    if (!securityCode || securityCode.length !== 6 || !/^[0-9]{6}$/.test(securityCode)) {
+        showNotification('Please enter a valid 6-digit security code (numbers only)', 'error');
+        return;
+    }
+    
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        showNotification('Please log in to update your security code', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(getApiUrl('/api/auth/set-security-code'), {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ securityCode })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showNotification('Security code updated successfully!', 'success');
+            securityCodeInput.value = '';
+            
+            // Update status indicator
+            if (statusIndicator) {
+                statusIndicator.innerHTML = '<i class="fas fa-check-circle" style="color: #28a745;"></i> Security code set';
+            }
+        } else {
+            showNotification(data.error || 'Failed to update security code', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating security code:', error);
+        showNotification('Network error. Please try again.', 'error');
+    }
+}
+
 
 
 // Show profile error
@@ -1419,15 +1690,6 @@ function escapeHtml(text) {
     // Initialize authentication status (this also tests backend connection)
     checkAuthStatus();
     
-    // Debug function to check auth state
-    window.debugAuth = function() {
-        console.log('=== AUTH DEBUG ===');
-        console.log('authToken:', authToken);
-        console.log('currentUser:', currentUser);
-        console.log('localStorage authToken:', localStorage.getItem('authToken'));
-        console.log('==================');
-    };
-    
     // Debug function for authentication testing
     window.debugAuth = function() {
         console.log('=== AUTH DEBUG ===');
@@ -1435,7 +1697,23 @@ function escapeHtml(text) {
         console.log('currentUser:', currentUser);
         console.log('localStorage authToken:', localStorage.getItem('authToken'));
         console.log('Profile button visible:', document.getElementById('user-info')?.style.display !== 'none');
+        console.log('Auth buttons element:', authButtons);
+        console.log('User info element:', userInfo);
+        console.log('Login button element:', loginBtn);
+        console.log('Signup button element:', signupBtn);
+        console.log('Login modal element:', loginModal);
+        console.log('Signup modal element:', signupModal);
         console.log('==================');
+    };
+    
+    // Test function to manually open modals
+    window.testModal = function(modalType) {
+        console.log('Testing modal:', modalType);
+        if (modalType === 'login') {
+            openModal(loginModal);
+        } else if (modalType === 'signup') {
+            openModal(signupModal);
+        }
     };
     
     // Initialize profile modal

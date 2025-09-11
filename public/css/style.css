@@ -107,22 +107,7 @@ header .container {
     position: relative;
 }
 
-/* Mobile hamburger menu */
-.mobile-menu-toggle {
-    display: none;
-    background: none;
-    border: none;
-    color: #ecf0f1;
-    font-size: 1.5em;
-    cursor: pointer;
-    padding: 10px;
-    min-height: 44px;
-    min-width: 44px;
-}
 
-.mobile-menu-toggle:hover {
-    color: #3498db;
-}
 
 header h1 {
     margin: 0;
@@ -650,29 +635,6 @@ footer {
 
 /* Mobile Navigation */
 @media (max-width: 768px) {
-    .mobile-menu-toggle {
-        display: block;
-    }
-    
-    header nav {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background-color: #2c3e50;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        transform: translateY(-100%);
-        opacity: 0;
-        visibility: hidden;
-        transition: all 0.3s ease;
-        z-index: 1000;
-    }
-    
-    header nav.mobile-menu-open {
-        transform: translateY(0);
-        opacity: 1;
-        visibility: visible;
-    }
     
     header nav ul {
         flex-direction: column;
@@ -991,7 +953,6 @@ footer {
 
 /* Touch target optimizations - ensure minimum 44px touch targets */
 .nav-link,
-.mobile-menu-toggle,
 .music-toggle-btn,
 .btn,
 .submit-btn,

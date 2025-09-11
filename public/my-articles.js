@@ -34,52 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Floating button functionality is now handled by floating-tts-tracker.js
     const CURRENT_ARTICLE_KEY = 'currentArticleState';
     
-    // Mobile menu functionality
-    const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
-    const mainNavigation = document.querySelector('.main-navigation');
-    
-    if (mobileMenuToggle && mainNavigation) {
-        mobileMenuToggle.addEventListener('click', function() {
-            const isExpanded = mobileMenuToggle.getAttribute('aria-expanded') === 'true';
-            
-            // Toggle menu visibility
-            mainNavigation.classList.toggle('active');
-            
-            // Update ARIA attribute
-            mobileMenuToggle.setAttribute('aria-expanded', !isExpanded);
-            
-            // Change icon
-            const icon = mobileMenuToggle.querySelector('i');
-            if (icon) {
-                icon.className = isExpanded ? 'fas fa-bars' : 'fas fa-times';
-            }
-        });
-        
-        // Close menu when clicking on navigation links
-        const navLinks = mainNavigation.querySelectorAll('.nav-link');
-        navLinks.forEach(link => {
-            link.addEventListener('click', function() {
-                mainNavigation.classList.remove('active');
-                mobileMenuToggle.setAttribute('aria-expanded', 'false');
-                const icon = mobileMenuToggle.querySelector('i');
-                if (icon) {
-                    icon.className = 'fas fa-bars';
-                }
-            });
-        });
-        
-        // Close menu when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!mobileMenuToggle.contains(event.target) && !mainNavigation.contains(event.target)) {
-                mainNavigation.classList.remove('active');
-                mobileMenuToggle.setAttribute('aria-expanded', 'false');
-                const icon = mobileMenuToggle.querySelector('i');
-                if (icon) {
-                    icon.className = 'fas fa-bars';
-                }
-            }
-        });
-    }
+
 
     
     // Authentication functions - copied from main app
@@ -122,6 +77,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     currentUser = data.user;
                     updateAuthUI();
                     loadUserArticles();
+                    
+                    // Check if user needs to set up security code (only once per session)
+                    if (currentUser && !currentUser.hasSecurityCode && !sessionStorage.getItem('profileSetupPrompted')) {
+                        sessionStorage.setItem('profileSetupPrompted', 'true');
+                        showProfileSetupModal();
+                    }
                 } else {
                     console.log('=== DEBUG: Auth failed, removing token');
                     // Token is invalid, remove it
@@ -181,12 +142,20 @@ document.addEventListener('DOMContentLoaded', function() {
             // Load user preferences and populate voice selection
             loadUserPreferences();
             populateVoiceSelection();
+            // Start theme preview mode
+            if (window.themeManager) {
+                window.themeManager.startPreviewMode();
+            }
         });
     }
     
     // Close profile modal
     if (closeProfileModal) {
         closeProfileModal.addEventListener('click', () => {
+            // Cancel theme preview if in preview mode
+            if (window.themeManager && window.themeManager.isInPreviewMode()) {
+                window.themeManager.cancelPreview();
+            }
             profileModal.style.display = 'none';
         });
     }
@@ -194,6 +163,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Close modal when clicking outside
     window.addEventListener('click', (event) => {
         if (event.target === profileModal) {
+            // Cancel theme preview if in preview mode
+            if (window.themeManager && window.themeManager.isInPreviewMode()) {
+                window.themeManager.cancelPreview();
+            }
             profileModal.style.display = 'none';
         }
     });
@@ -227,6 +200,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
             localStorage.removeItem('authToken');
+            sessionStorage.removeItem('profileSetupPrompted');
             authToken = null;
             currentUser = null;
             userArticles = [];
@@ -297,6 +271,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     closeModal(loginModal);
                     loginForm.reset();
                     loadUserArticles();
+                    
+                    // Show profile setup modal if user doesn't have a security code
+                    if (!currentUser.hasSecurityCode) {
+                        showProfileSetupModal();
+                    }
                 } else {
                     showError(loginError, data.error || 'Login failed');
                 }
@@ -308,6 +287,94 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 showError(loginError, `Network error: ${error.message}. Please check console for details.`);
             }
+        });
+    }
+    
+    // Password validation functions
+    function validatePassword(password) {
+        const requirements = {
+            length: password.length >= 8,
+            capital: /[A-Z]/.test(password),
+            special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+        };
+        return requirements;
+    }
+    
+    function updatePasswordRequirements(password) {
+        const requirements = validatePassword(password);
+        
+        const lengthReq = document.getElementById('length-req');
+        const capitalReq = document.getElementById('capital-req');
+        const specialReq = document.getElementById('special-req');
+        
+        if (lengthReq) {
+            lengthReq.className = requirements.length ? 'requirement valid' : 'requirement invalid';
+        }
+        if (capitalReq) {
+            capitalReq.className = requirements.capital ? 'requirement valid' : 'requirement invalid';
+        }
+        if (specialReq) {
+            specialReq.className = requirements.special ? 'requirement valid' : 'requirement invalid';
+        }
+        
+        return requirements.length && requirements.capital && requirements.special;
+    }
+    
+    function updatePasswordMatch(password, confirmPassword) {
+        const passwordMatch = document.getElementById('password-match');
+        if (passwordMatch && confirmPassword) {
+            const isMatch = password === confirmPassword;
+            passwordMatch.style.display = 'flex';
+            passwordMatch.className = isMatch ? 'password-match valid' : 'password-match invalid';
+            passwordMatch.querySelector('.req-text').textContent = isMatch ? 'Passwords match' : 'Passwords must match';
+        }
+    }
+    
+    async function checkPasswordUniqueness(password) {
+        if (!password || password.length < 8) return;
+        
+        try {
+            const response = await fetch(getApiUrl('/api/auth/check-password'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ password })
+            });
+            
+            const data = await response.json();
+            const uniqueReq = document.getElementById('unique-req');
+            if (uniqueReq) {
+                uniqueReq.className = data.unique ? 'requirement valid' : 'requirement invalid';
+            }
+            return data.unique;
+        } catch (error) {
+            console.error('Password uniqueness check failed:', error);
+            return true; // Assume unique if check fails
+        }
+    }
+    
+    // Add password validation event listeners
+    const signupPassword = document.getElementById('signup-password');
+    const signupConfirmPassword = document.getElementById('signup-confirm-password');
+    
+    if (signupPassword) {
+        signupPassword.addEventListener('input', (e) => {
+            const password = e.target.value;
+            updatePasswordRequirements(password);
+            checkPasswordUniqueness(password);
+            
+            if (signupConfirmPassword && signupConfirmPassword.value) {
+                updatePasswordMatch(password, signupConfirmPassword.value);
+            }
+        });
+    }
+    
+    if (signupConfirmPassword) {
+        signupConfirmPassword.addEventListener('input', (e) => {
+            const confirmPassword = e.target.value;
+            const password = signupPassword ? signupPassword.value : '';
+            updatePasswordMatch(password, confirmPassword);
         });
     }
     
@@ -346,6 +413,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     closeModal(signupModal);
                     signupForm.reset();
                     loadUserArticles();
+                    
+                    // Show profile setup modal for new users
+                    showProfileSetupModal();
                 } else {
                     showError(signupError, data.error || 'Registration failed');
                 }
@@ -957,6 +1027,7 @@ function previewVoice(voice, button) {
 function initializePreferences() {
     const saveBtn = document.getElementById('save-preferences');
     const resetBtn = document.getElementById('reset-preferences');
+    const updateSecurityCodeBtn = document.getElementById('update-security-code');
     
     if (saveBtn) {
         saveBtn.addEventListener('click', saveUserPreferences);
@@ -964,6 +1035,10 @@ function initializePreferences() {
     
     if (resetBtn) {
         resetBtn.addEventListener('click', resetUserPreferences);
+    }
+    
+    if (updateSecurityCodeBtn) {
+        updateSecurityCodeBtn.addEventListener('click', updateSecurityCode);
     }
 
     // Initialize voice selection when voices are ready
@@ -1052,6 +1127,59 @@ function resetUserPreferences() {
     showNotification('Preferences reset to default', 'info');
 }
 
+// Update security code
+async function updateSecurityCode() {
+    const securityCodeInput = document.getElementById('profile-security-code');
+    const statusIndicator = document.getElementById('security-code-indicator');
+    
+    if (!securityCodeInput) {
+        console.error('Security code input not found');
+        return;
+    }
+    
+    const securityCode = securityCodeInput.value.trim();
+    
+    // Validate security code format
+    if (!securityCode || securityCode.length !== 6 || !/^[0-9]{6}$/.test(securityCode)) {
+        showNotification('Please enter a valid 6-digit security code (numbers only)', 'error');
+        return;
+    }
+    
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        showNotification('Please log in to update your security code', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(getApiUrl('/api/auth/set-security-code'), {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ securityCode })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showNotification('Security code updated successfully!', 'success');
+            securityCodeInput.value = '';
+            
+            // Update status indicator
+            if (statusIndicator) {
+                statusIndicator.innerHTML = '<i class="fas fa-check-circle" style="color: #28a745;"></i> Security code set';
+            }
+        } else {
+            showNotification(data.error || 'Failed to update security code', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating security code:', error);
+        showNotification('Network error. Please try again.', 'error');
+    }
+}
+
 // Show notification function (simplified version)
 function showNotification(message, type) {
     console.log(`${type.toUpperCase()}: ${message}`);
@@ -1111,8 +1239,95 @@ function initializeReturnToArticleButton() {
     }
 }
 
+// Profile Setup Modal Functions
+function showProfileSetupModal() {
+    console.log('Showing profile setup modal...');
+    const profileSetupModal = document.getElementById('profile-setup-modal');
+    const profileSetupForm = document.getElementById('profile-setup-form');
+    const skipButton = document.getElementById('skip-security-code');
+    const closeButton = document.getElementById('close-profile-setup-modal');
+    const errorDiv = document.getElementById('profile-setup-error');
+    const successDiv = document.getElementById('profile-setup-success');
+    
+    if (profileSetupModal) {
+        profileSetupModal.style.display = 'block';
+        
+        // Handle form submission
+        if (profileSetupForm) {
+            profileSetupForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const securityCode = document.getElementById('security-code').value.trim();
+                
+                if (securityCode && securityCode.length === 6 && /^[0-9]{6}$/.test(securityCode)) {
+                    try {
+                        const response = await fetch(getApiUrl('/api/auth/set-security-code'), {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            },
+                            body: JSON.stringify({ securityCode })
+                        });
+                        
+                        if (response.ok) {
+                            successDiv.textContent = 'Security code saved successfully!';
+                            successDiv.style.display = 'block';
+                            errorDiv.style.display = 'none';
+                            // Clear the session flag since user now has security code
+                            sessionStorage.removeItem('profileSetupPrompted');
+                            setTimeout(() => {
+                                profileSetupModal.style.display = 'none';
+                            }, 2000);
+                        } else {
+                            const data = await response.json();
+                            errorDiv.textContent = data.error || 'Failed to save security code';
+                            errorDiv.style.display = 'block';
+                            successDiv.style.display = 'none';
+                        }
+                    } catch (error) {
+                        console.error('Error saving security code:', error);
+                        errorDiv.textContent = 'Network error. Please try again.';
+                        errorDiv.style.display = 'block';
+                        successDiv.style.display = 'none';
+                    }
+                } else {
+                    errorDiv.textContent = 'Please enter a valid 6-digit code (numbers only)';
+                    errorDiv.style.display = 'block';
+                    successDiv.style.display = 'none';
+                }
+            });
+        }
+        
+        // Handle skip button
+        if (skipButton) {
+            skipButton.addEventListener('click', () => {
+                profileSetupModal.style.display = 'none';
+            });
+        }
+        
+        // Handle close button
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                profileSetupModal.style.display = 'none';
+            });
+        }
+        
+        // Close modal when clicking outside
+        profileSetupModal.addEventListener('click', (event) => {
+            if (event.target === profileSetupModal) {
+                profileSetupModal.style.display = 'none';
+            }
+        });
+    }
+}
+
 // Initialize Return to Article button when page loads
 document.addEventListener('DOMContentLoaded', function() {
     // Wait a bit for other initialization to complete
     setTimeout(initializeReturnToArticleButton, 100);
+    
+    // Initialize ThemeManager if available
+    if (window.themeManager) {
+        window.themeManager.initializeThemeSelect();
+    }
 });

@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Article Audiobook</title>
+    <title>Cerebray - AI Article Audiobook</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="icon" type="image/x-icon" href="favicon.svg">
+    <link rel="apple-touch-icon" href="logo.svg">
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,10 +17,7 @@
     <div id="app">
         <header>
             <div class="header-content">
-                <h1>AI Article Audiobook</h1>
-                <button class="mobile-menu-toggle" aria-expanded="false" aria-label="Toggle navigation menu">
-                    <i class="fas fa-bars"></i>
-                </button>
+                <h1><img src="logo.svg" alt="Cerebray Logo" class="logo-img">Cerebray</h1>
                 <nav class="main-navigation">
                     <a href="index.html" class="nav-link active">
                         <i class="fas fa-home"></i>
@@ -120,11 +120,33 @@
                 </div>
                 <div class="form-group">
                     <label for="signup-password">Password:</label>
-                    <input type="password" id="signup-password" required minlength="6">
+                    <input type="password" id="signup-password" required minlength="8">
+                    <div class="password-requirements" id="password-requirements">
+                        <div class="requirement" id="length-req">
+                            <span class="req-icon">✗</span>
+                            <span class="req-text">At least 8 characters</span>
+                        </div>
+                        <div class="requirement" id="capital-req">
+                            <span class="req-icon">✗</span>
+                            <span class="req-text">One capital letter</span>
+                        </div>
+                        <div class="requirement" id="special-req">
+                            <span class="req-icon">✗</span>
+                            <span class="req-text">One special character</span>
+                        </div>
+                        <div class="requirement" id="unique-req">
+                            <span class="req-icon">✗</span>
+                            <span class="req-text">Unique password</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="signup-confirm-password">Confirm Password:</label>
-                    <input type="password" id="signup-confirm-password" required minlength="6">
+                    <input type="password" id="signup-confirm-password" required minlength="8">
+                    <div class="password-match" id="password-match" style="display: none;">
+                        <span class="req-icon">✗</span>
+                        <span class="req-text">Passwords must match</span>
+                    </div>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="primary-btn">Sign Up</button>
@@ -146,10 +168,18 @@
                 <div class="form-group">
                     <label for="forgot-email">Email Address:</label>
                     <input type="email" id="forgot-email" required placeholder="Enter your email address">
-                    <p class="form-help-text">We'll send you a link to reset your password.</p>
+                </div>
+                <div class="form-group">
+                    <label for="forgot-security-code">6-Digit Security Code:</label>
+                    <input type="text" id="forgot-security-code" maxlength="6" pattern="[0-9]{6}" placeholder="Enter your 6-digit security code" required>
+                    <p class="form-help-text">Enter the 6-digit security code you set up during registration.</p>
+                </div>
+                <div class="warning-message" style="background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 10px; border-radius: 4px; margin: 10px 0; font-size: 14px;">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Note:</strong> If you didn't set up a security code, please contact support for account recovery.
                 </div>
                 <div class="form-actions">
-                    <button type="submit" class="primary-btn">Send Reset Link</button>
+                    <button type="submit" class="primary-btn">Verify & Reset Password</button>
                     <button type="button" id="back-to-login" class="secondary-btn">Back to Login</button>
                 </div>
             </form>
@@ -180,6 +210,33 @@
             </form>
             <div id="reset-password-error" class="error-message" style="display: none;"></div>
             <div id="reset-password-success" class="success-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Profile Setup Modal -->
+    <div id="profile-setup-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Complete Your Profile Setup</h2>
+                <span class="close" id="close-profile-setup-modal">&times;</span>
+            </div>
+            <form id="profile-setup-form">
+                <div class="form-group">
+                    <label for="security-code">Set a 6-Digit Security Code (Optional)</label>
+                    <input type="text" id="security-code" name="security-code" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6 digits (e.g., 123456)">
+                    <small class="form-help">This code will help you recover your account if you forget your password.</small>
+                </div>
+                <div class="warning-message" style="background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Warning:</strong> If you don't set a security code, you may lose access to your account if you forget your password!
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="skip-security-code" class="btn btn-secondary">Skip for Now</button>
+                    <button type="submit" class="btn btn-primary">Save Security Code</button>
+                </div>
+            </form>
+            <div id="profile-setup-error" class="error-message" style="display: none;"></div>
+            <div id="profile-setup-success" class="success-message" style="display: none;"></div>
         </div>
     </div>
 
@@ -320,6 +377,34 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="preferences-section">
+                                    <div class="section-header">
+                                        <div class="section-icon">
+                                            <i class="fas fa-shield-alt"></i>
+                                        </div>
+                                        <h4 class="section-title">Security</h4>
+                                    </div>
+                                    <div class="preference-group">
+                                        <label class="preference-label">
+                                            <i class="fas fa-key"></i>
+                                            6-Digit Security Code
+                                        </label>
+                                        <p class="preference-description">Set or update your 6-digit security code for password recovery</p>
+                                        <div class="security-code-container">
+                                            <input type="text" id="profile-security-code" class="preference-input" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6 digits (e.g., 123456)">
+                                            <button id="update-security-code" class="preferences-btn secondary">
+                                                <i class="fas fa-save"></i>
+                                                Update Code
+                                            </button>
+                                        </div>
+                                        <div id="security-code-status" class="security-code-status">
+                                            <span id="security-code-indicator" class="status-indicator">
+                                                <i class="fas fa-times-circle" style="color: #dc3545;"></i>
+                                                No security code set
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="preferences-actions">
                                     <button id="save-preferences" class="preferences-btn primary">
                                         <i class="fas fa-save"></i>
@@ -384,6 +469,66 @@
             </div>
         </div>
     </div>
+
+    <!-- Contact Us Floating Button -->
+    <div id="contact-us-btn" class="contact-us-floating-btn">
+        <i class="fas fa-envelope"></i>
+        <span>Contact Us</span>
+    </div>
+
+    <!-- Contact Us Modal -->
+    <div id="contact-us-modal" class="modal contact-modal" style="display: none;">
+        <div class="modal-content contact-modal-content">
+            <div class="modal-header">
+                <h2>Contact Us</h2>
+                <span class="close" id="contact-modal-close">&times;</span>
+            </div>
+            <div class="contact-form-container">
+                <form id="contact-form" action="https://formsubmit.co/Fredwisseh@gmail.com" method="POST">
+                    <input type="hidden" name="_subject" value="New Contact Form Submission">
+                    <input type="hidden" name="_captcha" value="false">
+                    <input type="hidden" name="_next" value="#">
+                    
+                    <div class="form-group">
+                        <label for="contact-name">First Name *</label>
+                        <input type="text" id="contact-name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="contact-email">Email Address *</label>
+                        <input type="email" id="contact-email" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="contact-topic">Topic *</label>
+                        <select id="contact-topic" name="topic" required>
+                            <option value="">Select a topic...</option>
+                            <option value="general inquiry">General Inquiry</option>
+                            <option value="forgot 6 digit passcode">Forgot 6 Digit Passcode</option>
+                            <option value="business inquiry">Business Inquiry</option>
+                            <option value="technical support">Technical Support</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="contact-message">Message *</label>
+                        <textarea id="contact-message" name="message" rows="5" required placeholder="Please describe your inquiry..."></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="contact-submit-btn">
+                            <i class="fas fa-paper-plane"></i>
+                            Send Message
+                        </button>
+                        <button type="button" id="contact-cancel-btn" class="contact-cancel-btn">
+                            <i class="fas fa-times"></i>
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     
     <script src="config.js"></script>
     <script src="theme-utils.js"></script>
@@ -391,6 +536,7 @@
     <script src="persistent-music.js"></script>
     <script src="floating-tts-tracker.js"></script>
     <script src="touch-gestures.js"></script>
+    <script src="contact.js"></script>
     <script src="script.js?v=8"></script>
 </body>
 </html>

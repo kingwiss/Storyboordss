@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="noteGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e6f3ff;stop-opacity:1" />
+      <stop offset="15%" style="stop-color:#b3d9ff;stop-opacity:1" />
+      <stop offset="35%" style="stop-color:#87ceeb;stop-opacity:1" />
+      <stop offset="65%" style="stop-color:#4682b4;stop-opacity:1" />
+      <stop offset="85%" style="stop-color:#2e5984;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a3a52;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="metallicHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.8" />
+      <stop offset="30%" style="stop-color:#e6f3ff;stop-opacity:0.6" />
+      <stop offset="70%" style="stop-color:#87ceeb;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#4682b4;stop-opacity:0.1" />
+    </linearGradient>
+    
+    <radialGradient id="bgGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#87ceeb;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#4169e1;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="32" height="32" fill="url(#bgGradient)" rx="4"/>
+  
+  <!-- Main music note -->
+  <g>
+    <!-- Note head -->
+    <ellipse cx="11" cy="22" rx="4" ry="3" fill="url(#noteGradient)" transform="rotate(-20 11 22)"/>
+    <!-- Metallic highlight on note head -->
+    <ellipse cx="9.5" cy="20.5" rx="2" ry="1.5" fill="url(#metallicHighlight)" transform="rotate(-20 9.5 20.5)" opacity="0.7"/>
+    
+    <!-- Note stem -->
+    <rect x="14.5" y="10" width="1.5" height="12" fill="url(#noteGradient)"/>
+    <!-- Metallic highlight on stem -->
+    <rect x="14.6" y="10" width="0.6" height="12" fill="url(#metallicHighlight)" opacity="0.6"/>
+    
+    <!-- Note flag -->
+    <path d="M16 10 Q22 8 24 12 Q22 14 19 13 L16 14 Z" fill="url(#noteGradient)"/>
+    <!-- Metallic highlight on flag -->
+    <path d="M16 10 Q19 9 21 11 Q19 12 17 11.5 L16 12 Z" fill="url(#metallicHighlight)" opacity="0.5"/>
+  </g>
+  
+  <!-- Small accent note -->
+  <g opacity="0.7">
+    <ellipse cx="21" cy="18" rx="2" ry="1.5" fill="url(#noteGradient)" transform="rotate(-15 21 18)"/>
+    <ellipse cx="20" cy="17" rx="1" ry="0.8" fill="url(#metallicHighlight)" transform="rotate(-15 20 17)" opacity="0.6"/>
+    <rect x="22.5" y="14" width="1" height="6" fill="url(#noteGradient)"/>
+    <rect x="22.6" y="14" width="0.4" height="6" fill="url(#metallicHighlight)" opacity="0.5"/>
+  </g>
+  
+  <!-- Sparkle -->
+  <circle cx="25" cy="8" r="0.8" fill="#87ceeb" opacity="0.8"/>
+</svg>

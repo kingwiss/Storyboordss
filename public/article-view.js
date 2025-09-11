@@ -36,59 +36,20 @@ document.addEventListener('DOMContentLoaded', function() {
     let totalSlides = 0;
 
     // Modal elements
-    const loginModal = document.getElementById('login-modal');
-    const signupModal = document.getElementById('signup-modal');
+    const authModal = document.getElementById('auth-modal');
     const loginForm = document.getElementById('login-form');
     const signupForm = document.getElementById('signup-form');
     const loginError = document.getElementById('login-error');
     const signupError = document.getElementById('signup-error');
-
-    // Mobile menu functionality
-    const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
-    const navLinks = document.querySelector('.nav-links');
     
-    if (mobileMenuToggle && navLinks) {
-        mobileMenuToggle.addEventListener('click', function() {
-            const isExpanded = mobileMenuToggle.getAttribute('aria-expanded') === 'true';
-            
-            // Toggle menu visibility
-            navLinks.classList.toggle('active');
-            
-            // Update ARIA attribute
-            mobileMenuToggle.setAttribute('aria-expanded', !isExpanded);
-            
-            // Change icon
-            const icon = mobileMenuToggle.querySelector('i');
-            if (icon) {
-                icon.className = isExpanded ? 'fas fa-bars' : 'fas fa-times';
-            }
-        });
-        
-        // Close menu when clicking on navigation links
-        const navLinkElements = navLinks.querySelectorAll('.nav-link');
-        navLinkElements.forEach(link => {
-            link.addEventListener('click', function() {
-                navLinks.classList.remove('active');
-                mobileMenuToggle.setAttribute('aria-expanded', 'false');
-                const icon = mobileMenuToggle.querySelector('i');
-                if (icon) {
-                    icon.className = 'fas fa-bars';
-                }
-            });
-        });
-        
-        // Close menu when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!mobileMenuToggle.contains(event.target) && !navLinks.contains(event.target)) {
-                navLinks.classList.remove('active');
-                mobileMenuToggle.setAttribute('aria-expanded', 'false');
-                const icon = mobileMenuToggle.querySelector('i');
-                if (icon) {
-                    icon.className = 'fas fa-bars';
-                }
-            }
-        });
-    }
+    // Auth modal tabs
+    const loginTab = document.getElementById('login-tab');
+    const signupTab = document.getElementById('signup-tab');
+    const loginContainer = document.getElementById('login-form-container');
+    const signupContainer = document.getElementById('signup-form-container');
+    const authModalClose = document.getElementById('auth-close');
+
+
 
     // Initialize the page
     initializePage();
@@ -128,6 +89,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentUser = userData;
                 localStorage.setItem('currentUser', JSON.stringify(userData));
                 updateAuthUI();
+                
+                // Check if user needs to set up security code (only once per session)
+                if (currentUser && !currentUser.hasSecurityCode && !sessionStorage.getItem('profileSetupPrompted')) {
+                    sessionStorage.setItem('profileSetupPrompted', 'true');
+                    showProfileSetupModal();
+                }
                 return true;
             } else if (response.status === 401) {
                 // Token is expired or invalid
@@ -175,21 +142,28 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Hide login/signup buttons on article page when user is logged in
+        // Show user info when logged in, login/signup buttons when not
         if (currentUser && authToken) {
-            navUser.innerHTML = ``; // Remove login/signup buttons completely
+            navUser.innerHTML = `
+                <div class="nav-user-info">
+                    <span class="welcome-text">Welcome, ${escapeHtml(currentUser.username)}!</span>
+                    <button class="btn btn-secondary" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </button>
+                </div>
+            `;
             
-            // Hide login/signup modals if they exist
-            if (loginModal) loginModal.style.display = 'none';
-            if (signupModal) signupModal.style.display = 'none';
+            // Hide auth modal if it exists
+            if (authModal) authModal.style.display = 'none';
         } else {
             navUser.innerHTML = `
                 <div class="nav-auth">
-                    <button class="btn btn-secondary" onclick="openModal('login-modal')">
+                    <button class="btn btn-secondary" onclick="showAuthModal('login')">
                         <i class="fas fa-sign-in-alt"></i>
                         Login
                     </button>
-                    <button class="btn btn-primary" onclick="openModal('signup-modal')">
+                    <button class="btn btn-primary" onclick="showAuthModal('signup')">
                         <i class="fas fa-user-plus"></i>
                         Sign Up
                     </button>
@@ -778,23 +752,45 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         }
 
-        // Save playback state before window closes or navigation
+        // Enhanced playback state saving with better persistence
         window.savePlaybackState = () => {
             // Save state if TTS is playing, paused, or has been active recently
             if (ttsState.isPlaying || speechSynthesis.speaking || (ttsState.currentWordIndex > 0 && ttsState.fullArticleText)) {
-                // Determine if TTS is currently paused
+                // Determine if TTS is currently paused with more accurate detection
                 const isPaused = !ttsState.isPlaying && !speechSynthesis.speaking && ttsState.currentWordIndex > 0;
+                const actuallyPlaying = ttsState.isPlaying || speechSynthesis.speaking;
                 
-                // Save to old ttsState for backward compatibility
-                localStorage.setItem('ttsState', JSON.stringify({
+                // Ensure we save the exact current position (not ahead)
+                let currentPosition = ttsState.currentWordIndex;
+                
+                // If TTS is currently speaking, the saved position should be the current word
+                // If TTS is paused or stopped, save the exact position where it stopped
+                console.log('Saving playback state - position:', currentPosition, 'playing:', actuallyPlaying, 'paused:', isPaused);
+                
+                // Enhanced state object with additional metadata
+                const enhancedState = {
                     articleId: currentArticle.id,
-                    isPlaying: ttsState.isPlaying,
+                    articleTitle: currentArticle.title || 'Unknown Article',
+                    isPlaying: actuallyPlaying,
                     isPaused: isPaused,
-                    wordIndex: ttsState.currentWordIndex,
+                    wordIndex: Math.max(0, currentPosition),
                     totalWords: ttsState.totalWords,
                     fullText: ttsState.fullArticleText,
-                    timestamp: Date.now()
-                }));
+                    timestamp: Date.now(),
+                    sessionId: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                    lastSaveReason: 'navigation',
+                    speechRate: document.getElementById('speed-control')?.value || 1,
+                    selectedVoice: selectedVoice?.name || null
+                };
+                
+                // Save to multiple storage keys for redundancy
+                localStorage.setItem('ttsState', JSON.stringify(enhancedState));
+                localStorage.setItem('ttsStateBackup', JSON.stringify(enhancedState));
+                
+                // Also save to sessionStorage for same-session persistence
+                sessionStorage.setItem('ttsStateSession', JSON.stringify(enhancedState));
+                
+                console.log('Enhanced TTS state saved:', enhancedState);
                 
                 // Sync with floating TTS tracker when leaving page
                 if (window.floatingTTSTracker) {
@@ -804,7 +800,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         ttsState.fullArticleText
                     );
                     window.floatingTTSTracker.updateTTSState(
-                        ttsState.isPlaying,
+                        actuallyPlaying,
                         isPaused,
                         ttsState.currentWordIndex,
                         ttsState.totalWords
@@ -820,66 +816,114 @@ document.addEventListener('DOMContentLoaded', function() {
         let shouldAutoResume = false;
         let restoredWordIndex = 0;
         
-        // Check for existing TTS state and restore if needed
-        // Priority: currentArticleState > persistent audio manager state > old ttsState
+        // Enhanced TTS state restoration with multiple fallback mechanisms
+        // Priority: sessionStorage > currentArticleState > persistent audio manager > localStorage backups
         
-        // First check currentArticleState (used by header navigation button)
-        const currentArticleState = localStorage.getItem('currentArticleState');
-        if (currentArticleState) {
-            try {
-                const state = JSON.parse(currentArticleState);
-                // Only restore if it's the same article and within 10 minutes
-                if (state.articleId === currentArticle.id && 
-                    state.timestamp && 
-                    (Date.now() - state.timestamp) < 600000) {
-                    
-                    console.log('Restoring from currentArticleState:', state);
-                    restoredWordIndex = state.currentWordIndex || 0;
-                    shouldAutoResume = state.isPlaying || state.isPaused;
-                }
-            } catch (error) {
-                console.error('Error restoring currentArticleState:', error);
-                localStorage.removeItem('currentArticleState');
+        const restoreFromState = (state, source) => {
+            if (!state || !state.articleId || state.articleId !== currentArticle.id) {
+                return false;
             }
-        } else if (window.persistentAudio && window.persistentAudio.articleId === currentArticle.id) {
-            console.log('Restoring from persistent audio manager:', {
-                articleId: window.persistentAudio.articleId,
-                wordIndex: window.persistentAudio.currentWordIndex,
-                isPlaying: window.persistentAudio.isPlaying
-            });
-            restoredWordIndex = window.persistentAudio.currentWordIndex || 0;
-            shouldAutoResume = window.persistentAudio.isPlaying;
-        } else {
-            // Fallback to old ttsState system
-            const savedState = localStorage.getItem('ttsState');
-            if (savedState) {
-                try {
-                    const state = JSON.parse(savedState);
-                    // Only restore if it's the same article and within 5 minutes
-                    if (state.articleId === currentArticle.id && 
-                        state.timestamp && 
-                        (Date.now() - state.timestamp) < 300000) {
-                        
-                        console.log('Restoring from old TTS state:', state);
-                        restoredWordIndex = state.wordIndex || 0;
-                        shouldAutoResume = state.isPlaying;
+            
+            const timeDiff = Date.now() - (state.timestamp || 0);
+            const maxAge = source === 'session' ? 3600000 : 600000; // 1 hour for session, 10 min for others
+            
+            if (timeDiff > maxAge) {
+                console.log(`TTS state from ${source} too old (${Math.round(timeDiff/60000)} minutes)`);
+                return false;
+            }
+            
+            console.log(`Restoring TTS state from ${source}:`, state);
+            restoredWordIndex = Math.max(0, Math.min(state.wordIndex || state.currentWordIndex || 0, state.totalWords || 0));
+            shouldAutoResume = state.isPlaying || state.isPaused;
+            
+            // Restore additional settings if available
+            if (state.speechRate && document.getElementById('speed-control')) {
+                document.getElementById('speed-control').value = state.speechRate;
+            }
+            
+            return true;
+        };
+        
+        // Try session storage first (most recent, same session)
+        try {
+            const sessionState = sessionStorage.getItem('ttsStateSession');
+            if (sessionState && restoreFromState(JSON.parse(sessionState), 'session')) {
+                console.log('Successfully restored from session storage');
+            } else {
+                // Try currentArticleState (header navigation)
+                const currentArticleState = localStorage.getItem('currentArticleState');
+                if (currentArticleState && restoreFromState(JSON.parse(currentArticleState), 'currentArticle')) {
+                    console.log('Successfully restored from currentArticleState');
+                } else if (window.persistentAudio && window.persistentAudio.articleId === currentArticle.id) {
+                    // Try persistent audio manager
+                    const persistentState = {
+                        articleId: window.persistentAudio.articleId,
+                        wordIndex: window.persistentAudio.currentWordIndex,
+                        totalWords: window.persistentAudio.totalWords,
+                        isPlaying: window.persistentAudio.isPlaying,
+                        timestamp: Date.now() - 30000 // Assume recent
+                    };
+                    if (restoreFromState(persistentState, 'persistentAudio')) {
+                        console.log('Successfully restored from persistent audio manager');
                     }
-                } catch (error) {
-                    console.error('Error restoring TTS state:', error);
-                    localStorage.removeItem('ttsState');
+                } else {
+                    // Try main localStorage backup
+                    const savedState = localStorage.getItem('ttsState');
+                    if (savedState && restoreFromState(JSON.parse(savedState), 'localStorage')) {
+                        console.log('Successfully restored from localStorage');
+                    } else {
+                        // Try backup localStorage
+                        const backupState = localStorage.getItem('ttsStateBackup');
+                        if (backupState && restoreFromState(JSON.parse(backupState), 'backup')) {
+                            console.log('Successfully restored from backup storage');
+                        } else {
+                            console.log('No valid TTS state found for restoration');
+                        }
+                    }
                 }
             }
+        } catch (error) {
+            console.error('Error during TTS state restoration:', error);
+            // Clean up corrupted states
+            ['ttsStateSession', 'currentArticleState', 'ttsState', 'ttsStateBackup'].forEach(key => {
+                try {
+                    if (key === 'ttsStateSession') {
+                        sessionStorage.removeItem(key);
+                    } else {
+                        localStorage.removeItem(key);
+                    }
+                } catch (e) {
+                    console.warn(`Failed to clean up ${key}:`, e);
+                }
+            });
         }
         
         // Apply restored state
         ttsState.currentWordIndex = restoredWordIndex;
         
-        // Auto-resume if needed
-        if (shouldAutoResume) {
-            setTimeout(() => {
-                console.log('Auto-resuming TTS playback from word index:', restoredWordIndex);
-                handlePlayPause({ preventDefault: () => {}, stopPropagation: () => {} });
-            }, 1500);
+        // Enhanced auto-resume with validation
+        if (shouldAutoResume && restoredWordIndex >= 0) {
+            // Validate that we have the necessary components
+            if (ttsState.fullArticleText && ttsState.totalWords > 0) {
+                setTimeout(() => {
+                    console.log('Auto-resuming TTS playback from word index:', restoredWordIndex, 'of', ttsState.totalWords);
+                    
+                    // Ensure word index is within bounds
+                    ttsState.currentWordIndex = Math.min(restoredWordIndex, ttsState.totalWords - 1);
+                    
+                    // Highlight the current position before starting
+                    if (ttsState.wordElements && ttsState.wordElements.length > ttsState.currentWordIndex) {
+                        highlightWord(ttsState.currentWordIndex);
+                        updateProgress();
+                    }
+                    
+                    // Start playback
+                    handlePlayPause({ preventDefault: () => {}, stopPropagation: () => {} });
+                }, 1500);
+            } else {
+                console.warn('Cannot auto-resume: missing article text or word count');
+                shouldAutoResume = false;
+            }
         }
 
         ttsState.fullArticleText = articleText;
@@ -944,12 +988,20 @@ document.addEventListener('DOMContentLoaded', function() {
             ttsState.currentWordIndex = preservedWordIndex;
         }
         
-        // Only auto-start TTS if no restoration is happening
+        // Enhanced auto-start logic with better conditions
         if (!shouldAutoResume) {
-            setTimeout(() => {
-                console.log('Auto-starting TTS for article view...');
-                handlePlayPause({ preventDefault: () => {}, stopPropagation: () => {} });
-            }, 1000);
+            // Check if user has a preference for auto-start
+            const autoStartPreference = localStorage.getItem('ttsAutoStart');
+            const shouldAutoStart = autoStartPreference !== 'false'; // Default to true unless explicitly disabled
+            
+            if (shouldAutoStart) {
+                setTimeout(() => {
+                    console.log('Auto-starting TTS for article view...');
+                    handlePlayPause({ preventDefault: () => {}, stopPropagation: () => {} });
+                }, 1000);
+            } else {
+                console.log('Auto-start disabled by user preference');
+            }
         }
         
         // TTS is now working properly, test button removed
@@ -1219,6 +1271,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 // Save state immediately when pausing for cross-page tracking
+                // Ensure we save the exact current position, not ahead
+                console.log('Saving state on pause - current word index:', ttsState.currentWordIndex);
                 if (window.savePlaybackState) {
                     window.savePlaybackState();
                 }
@@ -1408,37 +1462,83 @@ document.addEventListener('DOMContentLoaded', function() {
             ttsState.currentUtterance.voice = selectedVoice;
         }
         
-        // Boundary events for word tracking
+        // Enhanced boundary events for improved word tracking accuracy
+        let lastSyncTime = 0;
+        let lastSaveTime = 0;
+        
         ttsState.currentUtterance.onboundary = (event) => {
             if (event.name === 'word' && ttsState.isPlaying) {
-                const wordIndex = startWordIndex + getWordIndexFromCharIndex(event.charIndex, wordsToSpeak);
-                const highlightIndex = wordIndex + 1;
+                const currentTime = Date.now();
                 
-                // Store the actual word position (not the highlight position)
+                // More accurate word index calculation
+                const relativeWordIndex = getWordIndexFromCharIndex(event.charIndex, wordsToSpeak);
+                const calculatedWordIndex = startWordIndex + relativeWordIndex;
+                
+                // Enhanced validation to prevent position drift
+                let wordIndex = calculatedWordIndex;
+                
+                // Only allow forward movement or small backward corrections (max 1 word)
+                if (wordIndex < ttsState.currentWordIndex) {
+                    const backwardDrift = ttsState.currentWordIndex - wordIndex;
+                    if (backwardDrift <= 1) {
+                        // Allow small backward correction
+                        wordIndex = calculatedWordIndex;
+                    } else {
+                        // Prevent significant backward jumps
+                        wordIndex = ttsState.currentWordIndex;
+                    }
+                }
+                
+                // Ensure word index is within valid bounds
+                wordIndex = Math.max(0, Math.min(wordIndex, ttsState.totalWords - 1));
+                
+                const previousIndex = ttsState.currentWordIndex;
+                
+                // Store the actual word position
                 ttsState.currentWordIndex = wordIndex;
                 
-                // Highlight the next word for visual feedback
-                if (highlightIndex < ttsState.totalWords) {
+                // Highlight the current word being spoken (not the next one)
+                const highlightIndex = wordIndex;
+                
+                // Only update UI if there's a meaningful change
+                if (Math.abs(wordIndex - previousIndex) >= 1) {
+                    // Highlight the current word being spoken for accurate visual feedback
                     highlightWord(highlightIndex);
                     updateProgress();
                     
-                    // Sync with persistent audio manager using actual position
-                    if (window.persistentAudio) {
-                        window.persistentAudio.syncWithArticleView(
-                            currentArticle.id,
-                            ttsState.isPlaying,
-                            ttsState.currentWordIndex,
-                            ttsState.totalWords,
-                            ttsState.fullArticleText
-                        );
+                    // Log significant position changes for debugging
+                    if (Math.abs(wordIndex - previousIndex) > 2) {
+                        console.log(`TTS position change: ${previousIndex} -> ${wordIndex} (char: ${event.charIndex})`);
                     }
-                    
-                    // Sync with floating TTS tracker
-                    if (window.floatingTTSTracker) {
-                        window.floatingTTSTracker.updateTTSState(ttsState.isPlaying, false, ttsState.currentWordIndex, ttsState.totalWords);
+                }
+                
+                // Throttled sync with persistent audio manager (max once per second)
+                if (window.persistentAudio && (currentTime - lastSyncTime) > 1000) {
+                    window.persistentAudio.syncWithArticleView(
+                        currentArticle.id,
+                        ttsState.isPlaying,
+                        ttsState.currentWordIndex,
+                        ttsState.totalWords,
+                        ttsState.fullArticleText
+                    );
+                    lastSyncTime = currentTime;
+                }
+                
+                // Sync with floating TTS tracker (less frequent)
+                if (window.floatingTTSTracker && (currentTime - lastSyncTime) > 1500) {
+                    window.floatingTTSTracker.updateTTSState(ttsState.isPlaying, false, ttsState.currentWordIndex, ttsState.totalWords);
+                }
+                
+                // Periodic state saving (every 15 words or 5 seconds)
+                if (wordIndex % 15 === 0 || (currentTime - lastSaveTime) > 5000) {
+                    if (window.savePlaybackState) {
+                        window.savePlaybackState();
+                        lastSaveTime = currentTime;
                     }
-                    
-                    // Dispatch progress update event for cross-page tracking
+                }
+                
+                // Dispatch progress update event for cross-page tracking (throttled)
+                if ((currentTime - lastSyncTime) > 2000) {
                     window.dispatchEvent(new CustomEvent('ttsProgressUpdate', {
                         detail: {
                             currentWordIndex: ttsState.currentWordIndex,
@@ -1453,6 +1553,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         ttsState.currentUtterance.onstart = () => {
             ttsState.isPlaying = true;
+            
+            // Update play/pause button to show pause icon when TTS actually starts
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            if (playPauseBtn) {
+                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i><span>Pause</span>';
+            }
+            
             if (startWordIndex < ttsState.totalWords) {
                 highlightWord(startWordIndex);
             }
@@ -1558,9 +1665,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function getWordIndexFromCharIndex(charIndex, text) {
+        if (charIndex <= 0) return 0;
+        
         const textUpToChar = text.substring(0, charIndex);
-        const words = textUpToChar.trim().split(/\s+/);
-        return words.length - 1;
+        const trimmedText = textUpToChar.trim();
+        
+        // Handle empty or whitespace-only text
+        if (!trimmedText) return 0;
+        
+        // Split by whitespace and filter out empty strings
+        const words = trimmedText.split(/\s+/).filter(word => word.length > 0);
+        
+        // Return the count of complete words (not length - 1)
+        // This represents the index of the word currently being spoken
+        return Math.max(0, words.length - 1);
     }
     
     function highlightWord(index) {
@@ -1753,6 +1871,7 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('currentArticleId');
         sessionStorage.removeItem('viewArticleData');
+        sessionStorage.removeItem('profileSetupPrompted');
         updateAuthUI();
         window.location.href = 'index.html';
     };
@@ -1779,6 +1898,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
+            const submitButton = loginForm.querySelector('button[type="submit"]');
+            
+            // Show loading state
+            const originalButtonText = submitButton.textContent;
+            submitButton.textContent = 'Signing In...';
+            submitButton.disabled = true;
             
             try {
                 const response = await fetch(getApiUrl('/api/auth/login'), {
@@ -1798,8 +1923,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     localStorage.setItem('authToken', authToken);
                     localStorage.setItem('currentUser', JSON.stringify(data.user));
                     updateAuthUI();
-                    closeModal('login-modal');
+                    if (authModal) authModal.style.display = 'none';
                     loginForm.reset();
+                    
+                    // Show profile setup modal if user doesn't have a security code
+                    if (!currentUser.hasSecurityCode) {
+                        showProfileSetupModal();
+                    }
                     
                     // Reload article if we have an ID in URL or stored
                     const urlParams = new URLSearchParams(window.location.search);
@@ -1813,7 +1943,99 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 console.error('Login error:', error);
                 showError(loginError, `Network error: ${error.message}`);
+            } finally {
+                // Restore button state
+                submitButton.textContent = originalButtonText;
+                submitButton.disabled = false;
             }
+        });
+    }
+
+    // Password validation functions
+    function validatePassword(password) {
+        const requirements = {
+            length: password.length >= 8,
+            capital: /[A-Z]/.test(password),
+            special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+        };
+        return requirements;
+    }
+    
+    function updatePasswordRequirements(password) {
+        const requirements = validatePassword(password);
+        
+        const lengthReq = document.getElementById('length-req');
+        const capitalReq = document.getElementById('capital-req');
+        const specialReq = document.getElementById('special-req');
+        
+        if (lengthReq) {
+            lengthReq.className = requirements.length ? 'requirement valid' : 'requirement invalid';
+        }
+        if (capitalReq) {
+            capitalReq.className = requirements.capital ? 'requirement valid' : 'requirement invalid';
+        }
+        if (specialReq) {
+            specialReq.className = requirements.special ? 'requirement valid' : 'requirement invalid';
+        }
+        
+        return requirements.length && requirements.capital && requirements.special;
+    }
+    
+    function updatePasswordMatch(password, confirmPassword) {
+        const passwordMatch = document.getElementById('password-match');
+        if (passwordMatch && confirmPassword) {
+            const isMatch = password === confirmPassword;
+            passwordMatch.style.display = 'flex';
+            passwordMatch.className = isMatch ? 'password-match valid' : 'password-match invalid';
+            passwordMatch.querySelector('.req-text').textContent = isMatch ? 'Passwords match' : 'Passwords must match';
+        }
+    }
+    
+    async function checkPasswordUniqueness(password) {
+        if (!password || password.length < 8) return;
+        
+        try {
+            const response = await fetch(getApiUrl('/api/auth/check-password'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ password })
+            });
+            
+            const data = await response.json();
+            const uniqueReq = document.getElementById('unique-req');
+            if (uniqueReq) {
+                uniqueReq.className = data.unique ? 'requirement valid' : 'requirement invalid';
+            }
+            return data.unique;
+        } catch (error) {
+            console.error('Password uniqueness check failed:', error);
+            return true; // Assume unique if check fails
+        }
+    }
+    
+    // Add password validation event listeners
+    const signupPassword = document.getElementById('signup-password');
+    const signupConfirmPassword = document.getElementById('signup-confirm-password');
+    
+    if (signupPassword) {
+        signupPassword.addEventListener('input', (e) => {
+            const password = e.target.value;
+            updatePasswordRequirements(password);
+            checkPasswordUniqueness(password);
+            
+            if (signupConfirmPassword && signupConfirmPassword.value) {
+                updatePasswordMatch(password, signupConfirmPassword.value);
+            }
+        });
+    }
+    
+    if (signupConfirmPassword) {
+        signupConfirmPassword.addEventListener('input', (e) => {
+            const confirmPassword = e.target.value;
+            const password = signupPassword ? signupPassword.value : '';
+            updatePasswordMatch(password, confirmPassword);
         });
     }
 
@@ -1827,11 +2049,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const email = document.getElementById('signup-email').value;
             const password = document.getElementById('signup-password').value;
             const confirmPassword = document.getElementById('signup-confirm-password').value;
+            const submitButton = signupForm.querySelector('button[type="submit"]');
             
             if (password !== confirmPassword) {
                 showError(signupError, 'Passwords do not match');
                 return;
             }
+            
+            // Show loading state
+            const originalButtonText = submitButton.textContent;
+            submitButton.textContent = 'Creating Account...';
+            submitButton.disabled = true;
             
             try {
                 const response = await fetch(getApiUrl('/api/auth/register'), {
@@ -1851,8 +2079,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     localStorage.setItem('authToken', authToken);
                     localStorage.setItem('currentUser', JSON.stringify(data.user));
                     updateAuthUI();
-                    closeModal('signup-modal');
+                    if (authModal) authModal.style.display = 'none';
                     signupForm.reset();
+                    
+                    // Show profile setup modal for new users
+                    showProfileSetupModal();
                     
                     // Reload article if we have an ID in URL or stored
                     const urlParams = new URLSearchParams(window.location.search);
@@ -1866,16 +2097,70 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 console.error('Signup error:', error);
                 showError(signupError, `Network error: ${error.message}`);
+            } finally {
+                // Restore button state
+                submitButton.textContent = originalButtonText;
+                submitButton.disabled = false;
             }
+        });
+    }
+
+    // Auth modal functions
+    window.showAuthModal = function(mode = 'login') {
+        if (!authModal) return;
+        
+        authModal.style.display = 'block';
+        switchAuthTab(mode);
+        
+        // Clear any previous errors
+        hideError(loginError);
+        hideError(signupError);
+    };
+    
+    window.switchAuthTab = function(mode) {
+        if (!loginTab || !signupTab || !loginContainer || !signupContainer) return;
+        
+        // Clear all active states first
+        loginTab.classList.remove('active');
+        signupTab.classList.remove('active');
+        loginContainer.classList.remove('active');
+        signupContainer.classList.remove('active');
+        
+        // Set active state for the selected mode
+        if (mode === 'login') {
+            loginTab.classList.add('active');
+            loginContainer.classList.add('active');
+        } else if (mode === 'signup') {
+            signupTab.classList.add('active');
+            signupContainer.classList.add('active');
+        }
+    };
+    
+    // Tab click handlers
+    if (loginTab) {
+        loginTab.addEventListener('click', () => switchAuthTab('login'));
+    }
+    
+    if (signupTab) {
+        signupTab.addEventListener('click', () => switchAuthTab('signup'));
+    }
+    
+    // Close modal handler
+    if (authModalClose) {
+        authModalClose.addEventListener('click', () => {
+            if (authModal) authModal.style.display = 'none';
         });
     }
 
     // Close modals when clicking outside
     window.addEventListener('click', function(event) {
-        if (event.target.classList.contains('modal')) {
-            event.target.style.display = 'none';
+        if (event.target === authModal) {
+            authModal.style.display = 'none';
         }
     });
+    
+    // Initialize auth modal - don't set any tab as active by default
+    // The active tab will be set when the modal is opened
     
     // Initialize voice selection
     loadVoices();
@@ -2068,3 +2353,85 @@ document.addEventListener('DOMContentLoaded', function() {
     // Ensure scroll button is always visible
     ensureScrollButtonVisible();
 });
+
+// Profile Setup Modal Functions
+function showProfileSetupModal() {
+    console.log('Showing profile setup modal...');
+    const profileSetupModal = document.getElementById('profile-setup-modal');
+    const profileSetupForm = document.getElementById('profile-setup-form');
+    const skipButton = document.getElementById('skip-security-code');
+    const closeButton = document.getElementById('close-profile-setup-modal');
+    const errorDiv = document.getElementById('profile-setup-error');
+    const successDiv = document.getElementById('profile-setup-success');
+    
+    if (profileSetupModal) {
+        profileSetupModal.style.display = 'block';
+        
+        // Handle form submission
+        if (profileSetupForm) {
+            profileSetupForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const securityCode = document.getElementById('security-code').value.trim();
+                
+                if (securityCode && securityCode.length === 6 && /^[0-9]{6}$/.test(securityCode)) {
+                    try {
+                        const response = await fetch(getApiUrl('/api/auth/set-security-code'), {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            },
+                            body: JSON.stringify({ securityCode })
+                        });
+                        
+                        if (response.ok) {
+                            successDiv.textContent = 'Security code saved successfully!';
+                            successDiv.style.display = 'block';
+                            errorDiv.style.display = 'none';
+                            // Clear the session flag since user now has security code
+                            sessionStorage.removeItem('profileSetupPrompted');
+                            setTimeout(() => {
+                                profileSetupModal.style.display = 'none';
+                            }, 2000);
+                        } else {
+                            const data = await response.json();
+                            errorDiv.textContent = data.error || 'Failed to save security code';
+                            errorDiv.style.display = 'block';
+                            successDiv.style.display = 'none';
+                        }
+                    } catch (error) {
+                        console.error('Error saving security code:', error);
+                        errorDiv.textContent = 'Network error. Please try again.';
+                        errorDiv.style.display = 'block';
+                        successDiv.style.display = 'none';
+                    }
+                } else {
+                    errorDiv.textContent = 'Please enter a valid 6-digit code (numbers only)';
+                    errorDiv.style.display = 'block';
+                    successDiv.style.display = 'none';
+                }
+            });
+        }
+        
+        // Handle skip button
+        if (skipButton) {
+            skipButton.addEventListener('click', () => {
+                profileSetupModal.style.display = 'none';
+            });
+        }
+        
+        // Handle close button
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                profileSetupModal.style.display = 'none';
+            });
+        }
+        
+        // Close modal when clicking outside
+        profileSetupModal.addEventListener('click', (event) => {
+            if (event.target === profileSetupModal) {
+                profileSetupModal.style.display = 'none';
+            }
+        });
+    }
+}

@@ -1,4 +1,4 @@
-# Storyboards - Interactive Audiobook Platform
+# Cerebray - Interactive Audiobook Platform
 
 A fully functional web application that transforms articles into immersive audiobook experiences with Text-to-Speech (TTS) technology, user management, and seamless navigation.
 

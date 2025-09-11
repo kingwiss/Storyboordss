@@ -34,28 +34,64 @@ class PersistentAudioManager {
     }
     
     restoreState() {
-        const savedState = localStorage.getItem('persistentTtsState');
-        if (!savedState) return;
+        // Try multiple storage sources with fallback mechanisms
+        const storageSources = [
+            { key: 'persistentTtsState', storage: localStorage, maxAge: 600000 }, // 10 minutes
+            { key: 'ttsStateSession', storage: sessionStorage, maxAge: 3600000 }, // 1 hour
+            { key: 'ttsState', storage: localStorage, maxAge: 600000 }, // 10 minutes
+            { key: 'ttsStateBackup', storage: localStorage, maxAge: 600000 } // 10 minutes
+        ];
         
-        try {
-            const state = JSON.parse(savedState);
-            
-            // Only restore if within 10 minutes and was playing
-            if (state.timestamp && 
-                (Date.now() - state.timestamp) < 600000 && 
-                state.isPlaying) {
+        for (const source of storageSources) {
+            try {
+                const savedState = source.storage.getItem(source.key);
+                if (!savedState) continue;
                 
+                const state = JSON.parse(savedState);
+                
+                // Validate state structure
+                if (!state || !state.articleId || !state.timestamp) {
+                    console.warn(`Invalid state structure in ${source.key}:`, state);
+                    source.storage.removeItem(source.key);
+                    continue;
+                }
+                
+                // Check if state is still valid
+                const age = Date.now() - state.timestamp;
+                if (age > source.maxAge) {
+                    console.log(`State in ${source.key} too old (${Math.round(age/60000)} minutes)`);
+                    source.storage.removeItem(source.key);
+                    continue;
+                }
+                
+                // Validate and sanitize state data
                 this.articleId = state.articleId;
-                this.isPlaying = state.isPlaying;
-                this.currentWordIndex = state.wordIndex || 0;
-                this.totalWords = state.totalWords || 0;
+                this.isPlaying = Boolean(state.isPlaying);
+                this.currentWordIndex = Math.max(0, parseInt(state.currentWordIndex || state.wordIndex || 0));
+                this.totalWords = Math.max(0, parseInt(state.totalWords || 0));
                 this.fullText = state.fullText || '';
                 
-                console.log('Restored persistent TTS state:', state);
+                // Additional validation
+                if (this.totalWords > 0 && this.currentWordIndex >= this.totalWords) {
+                    this.currentWordIndex = Math.max(0, this.totalWords - 1);
+                }
+                
+                console.log(`Restored persistent TTS state from ${source.key}:`, {
+                    articleId: this.articleId,
+                    isPlaying: this.isPlaying,
+                    currentWordIndex: this.currentWordIndex,
+                    totalWords: this.totalWords,
+                    age: Math.round(age/1000) + 's'
+                });
                 
                 // If not on article page, continue playing in background
                 if (!window.location.pathname.includes('article-view.html') && this.fullText) {
-                    this.continuePlayback();
+                    if (this.isPlaying) {
+                        this.continuePlayback();
+                    } else if (this.currentWordIndex > 0) {
+                        // Show controls for paused state
+                        this.createFloatingControls();
+                    }
                 } else if (window.location.pathname.includes('article-view.html')) {
                     // On article page, stop background playback and let article view handle it
                     if (speechSynthesis.speaking) {
@@ -64,26 +100,79 @@ class PersistentAudioManager {
                     this.removeFloatingControls();
                     console.log('Stopped background playback - article view will handle TTS');
                 }
+                
+                return true;
+            } catch (error) {
+                console.error(`Error restoring state from ${source.key}:`, error);
+                try {
+                    source.storage.removeItem(source.key);
+                } catch (cleanupError) {
+                    console.warn(`Failed to clean up corrupted state ${source.key}:`, cleanupError);
+                }
             }
-        } catch (error) {
-            console.error('Error restoring persistent TTS state:', error);
-            localStorage.removeItem('persistentTtsState');
         }
+        
+        console.log('No valid TTS state found in any storage source');
+        return false;
     }
     
     saveState() {
-        if (this.isPlaying || (speechSynthesis && speechSynthesis.speaking)) {
-            const state = {
-                articleId: this.articleId,
-                isPlaying: this.isPlaying,
-                wordIndex: this.currentWordIndex,
-                totalWords: this.totalWords,
-                fullText: this.fullText,
-                timestamp: Date.now()
-            };
-            
+        if (!this.articleId) {
+            console.warn('Cannot save state: no article ID');
+            return;
+        }
+        
+        // Enhanced state object with validation and metadata
+        const state = {
+            articleId: this.articleId,
+            isPlaying: Boolean(this.isPlaying),
+            currentWordIndex: Math.max(0, parseInt(this.currentWordIndex || 0)),
+            wordIndex: Math.max(0, parseInt(this.currentWordIndex || 0)), // Keep for backward compatibility
+            totalWords: Math.max(0, parseInt(this.totalWords || 0)),
+            fullText: this.fullText || '',
+            timestamp: Date.now(),
+            sessionId: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+            source: 'persistentAudioManager',
+            version: '2.0'
+        };
+        
+        // Validate state before saving
+        if (state.totalWords > 0 && state.currentWordIndex >= state.totalWords) {
+            state.currentWordIndex = Math.max(0, state.totalWords - 1);
+            state.wordIndex = state.currentWordIndex;
+        }
+        
+        try {
+            // Save to multiple storage locations for redundancy
             localStorage.setItem('persistentTtsState', JSON.stringify(state));
-            console.log('Saved persistent TTS state:', state);
+            localStorage.setItem('ttsStateBackup', JSON.stringify(state));
+            
+            // Also save to session storage for same-session persistence
+            sessionStorage.setItem('ttsStateSession', JSON.stringify(state));
+            
+            console.log('Enhanced persistent TTS state saved:', {
+                articleId: state.articleId,
+                isPlaying: state.isPlaying,
+                currentWordIndex: state.currentWordIndex,
+                totalWords: state.totalWords,
+                sessionId: state.sessionId
+            });
+        } catch (error) {
+            console.error('Failed to save persistent TTS state:', error);
+            
+            // Try to clean up storage if it's full
+            try {
+                // Remove old backup states
+                ['ttsStateBackup', 'oldTtsState', 'tempTtsState'].forEach(key => {
+                    localStorage.removeItem(key);
+                });
+                
+                // Retry saving
+                localStorage.setItem('persistentTtsState', JSON.stringify(state));
+                console.log('Successfully saved state after cleanup');
+            } catch (retryError) {
+                console.error('Failed to save state even after cleanup:', retryError);
+            }
         }
     }
     

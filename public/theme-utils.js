@@ -5,6 +5,8 @@ class ThemeManager {
     constructor() {
         this.STORAGE_KEY = 'userThemePreference';
         this.DEFAULT_THEME = 'light';
+        this.originalTheme = null; // Track original theme for cancel functionality
+        this.isPreviewMode = false; // Track if we're in preview mode
         this.init();
     }
 
@@ -57,7 +59,7 @@ class ThemeManager {
         }
     }
 
-    // Set theme preference in localStorage
+    // Set theme preference in localStorage (permanent save)
     setTheme(theme) {
         try {
             localStorage.setItem(this.STORAGE_KEY, theme);
@@ -71,6 +73,8 @@ class ThemeManager {
             }
             
             this.applyTheme(theme);
+            this.isPreviewMode = false;
+            this.originalTheme = null;
             
             // Dispatch custom event for other components to listen to
             window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme } }));
@@ -78,6 +82,52 @@ class ThemeManager {
         } catch (error) {
             console.error('Error setting theme preference:', error);
         }
+    }
+
+    // Preview theme without saving (temporary)
+    previewTheme(theme) {
+        if (!this.isPreviewMode) {
+            this.originalTheme = this.getTheme();
+            this.isPreviewMode = true;
+        }
+        this.applyTheme(theme);
+        
+        // Dispatch preview event
+        window.dispatchEvent(new CustomEvent('themePreview', { detail: { theme, original: this.originalTheme } }));
+    }
+
+    // Save the currently previewed theme
+    savePreviewedTheme() {
+        if (this.isPreviewMode) {
+            const currentTheme = this.getCurrentAppliedTheme();
+            this.setTheme(currentTheme);
+        }
+    }
+
+    // Cancel preview and revert to original theme
+    cancelPreview() {
+        if (this.isPreviewMode && this.originalTheme) {
+            this.applyTheme(this.originalTheme);
+            this.isPreviewMode = false;
+            this.originalTheme = null;
+            
+            // Update theme select to original value
+            this.updateThemeSelect();
+            
+            // Dispatch cancel event
+            window.dispatchEvent(new CustomEvent('themePreviewCancelled'));
+        }
+    }
+
+    // Get currently applied theme (from DOM)
+    getCurrentAppliedTheme() {
+        const body = document.body;
+        if (body.classList.contains('dark-theme') || body.getAttribute('data-theme') === 'dark') {
+            return 'dark';
+        } else if (body.classList.contains('light-theme') || body.getAttribute('data-theme') === 'light') {
+            return 'light';
+        }
+        return this.DEFAULT_THEME;
     }
 
     // Apply theme to the document
@@ -107,8 +157,6 @@ class ThemeManager {
             body.classList.add('light-theme');
             body.setAttribute('data-theme', 'light');
         }
-        
-        console.log(`Theme applied: ${theme} (actual: ${actualTheme})`);
     }
 
     // Toggle between light and dark themes
@@ -153,10 +201,31 @@ class ThemeManager {
             // Set current value
             themeSelect.value = this.getTheme();
             
-            // Add change listener
+            // Add change listener for immediate preview
             themeSelect.addEventListener('change', (e) => {
-                this.setTheme(e.target.value);
+                this.previewTheme(e.target.value);
             });
+        }
+    }
+
+    // Method to start preview mode when modal opens
+    startPreviewMode() {
+        if (!this.isPreviewMode) {
+            this.originalTheme = this.getTheme();
+            this.isPreviewMode = true;
+        }
+    }
+
+    // Method to check if in preview mode
+    isInPreviewMode() {
+        return this.isPreviewMode;
+    }
+
+    // Update theme select dropdown to match current theme
+    updateThemeSelect() {
+        const themeSelect = document.getElementById('theme-select');
+        if (themeSelect) {
+            themeSelect.value = this.getTheme();
         }
     }
 }

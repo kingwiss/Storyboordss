@@ -245,10 +245,12 @@ class TouchGestureHandler {
         if (document.body.classList.contains('article-view-page')) {
             let startX = 0;
             let startY = 0;
+            let startTarget = null;
             
             document.addEventListener('touchstart', (e) => {
                 startX = e.touches[0].clientX;
                 startY = e.touches[0].clientY;
+                startTarget = e.target;
             }, { passive: true });
             
             document.addEventListener('touchend', (e) => {
@@ -257,10 +259,19 @@ class TouchGestureHandler {
                 const deltaX = endX - startX;
                 const deltaY = endY - startY;
                 
-                // Check for horizontal swipe
-                if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 100) {
+                // Check if the swipe started within the slideshow/carousel area
+                const isInCarousel = startTarget && (
+                    startTarget.closest('#image-carousel') ||
+                    startTarget.closest('#image-carousel-container') ||
+                    startTarget.closest('#carousel-track') ||
+                    startTarget.closest('.carousel') ||
+                    startTarget.closest('.slideshow')
+                );
+                
+                // Check for horizontal swipe, but exclude carousel area
+                if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 100 && !isInCarousel) {
                     if (deltaX > 0) {
-                        // Swipe right - go back
+                        // Swipe right - go back (only if not in carousel)
                         const backBtn = document.querySelector('.back-btn');
                         if (backBtn) {
                             backBtn.click();

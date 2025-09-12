@@ -8,6 +8,34 @@
     <link rel="icon" type="image/x-icon" href="favicon.svg">
     <link rel="apple-touch-icon" href="logo.svg">
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Image carousel loading and error states */
+        .image-carousel-container.loading::before {
+            content: 'Loading images...';
+            display: block;
+            text-align: center;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .carousel-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        
+        /* Ensure images are properly contained */
+        .carousel-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">

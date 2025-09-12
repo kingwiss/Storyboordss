@@ -360,9 +360,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Display images in carousel
         const imageUrls = article.image_urls || article.imageUrls || [];
-        if (imageUrls.length > 0) {
-            displayImageCarousel(imageUrls);
+        console.log('Article data:', article);
+        console.log('Image URLs from article:', imageUrls);
+        
+        // Validate image URLs
+        const validImageUrls = imageUrls.filter(url => {
+            if (!url) {
+                console.warn('Found null or undefined image URL');
+                return false;
+            }
+            if (typeof url !== 'string') {
+                console.warn('Found non-string image URL:', url);
+                return false;
+            }
+            return true;
+        });
+        
+        if (validImageUrls.length > 0) {
+            displayImageCarousel(validImageUrls);
         } else {
+            console.warn('No valid image URLs found in article data');
             imageCarouselContainer.style.display = 'none';
         }
         
@@ -389,21 +406,53 @@ document.addEventListener('DOMContentLoaded', function() {
         ).join('');
     }
     
-    function displayImageCarousel(imageUrls) {
+    // Helper function to check if an image URL is accessible
+    function checkImageUrl(url) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = url;
+        });
+    }
+    
+    async function displayImageCarousel(imageUrls) {
         if (!imageUrls || imageUrls.length === 0) {
             imageCarouselContainer.style.display = 'none';
+            console.warn('No image URLs provided for carousel');
             return;
         }
         
+        console.log('Displaying image carousel with URLs:', imageUrls);
         totalSlides = imageUrls.length;
         currentSlide = 0;
         
-        // Create carousel slides
-        carouselTrack.innerHTML = imageUrls.map((url, index) => 
-            `<div class="carousel-slide">
-                <img src="${escapeHtml(url)}" alt="Article image ${index + 1}" class="carousel-image">
-            </div>`
-        ).join('');
+        // Show loading indicator
+        imageCarouselContainer.classList.add('loading');
+        
+        // Create carousel slides with improved error handling
+        carouselTrack.innerHTML = imageUrls.map((url, index) => {
+            // Check if URL is valid before creating the image element
+            let imageUrl = url;
+            try {
+                // Test if URL is valid
+                new URL(url);
+            } catch (e) {
+                console.error(`Invalid image URL format at index ${index}:`, url, e);
+                imageUrl = 'https://via.placeholder.com/800x600/E74C3C/FFFFFF.png?text=Invalid+URL+Format';
+            }
+            
+            return `<div class="carousel-slide">
+                <img 
+                    src="${imageUrl}" 
+                    alt="Article image ${index + 1}" 
+                    class="carousel-image" 
+                    onerror="this.onerror=null; this.src='https://via.placeholder.com/800x600/E74C3C/FFFFFF.png?text=Image+Load+Error'; console.error('Image failed to load:', this.getAttribute('data-original-src')); document.getElementById('carousel-error').style.display = 'block';"
+                    data-original-src="${imageUrl}"
+                    onload="console.log('Image loaded successfully:', this.getAttribute('data-original-src')); this.classList.add('loaded');"
+                >
+            </div>`;
+        }).join('');
         
         // Create indicators
         carouselIndicators.innerHTML = imageUrls.map((_, index) => 
@@ -418,6 +467,19 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Update carousel display
         updateCarouselPosition();
+        
+        // Remove loading indicator
+        imageCarouselContainer.classList.remove('loading');
+        
+        // Add error message container if not already present
+        if (!document.getElementById('carousel-error')) {
+            const errorDiv = document.createElement('div');
+            errorDiv.id = 'carousel-error';
+            errorDiv.className = 'carousel-error';
+            errorDiv.style.display = 'none';
+            errorDiv.innerHTML = '<p>Some images failed to load. Please try refreshing the page.</p>';
+            imageCarouselContainer.appendChild(errorDiv);
+        }
     }
     
     function setupCarouselControls() {

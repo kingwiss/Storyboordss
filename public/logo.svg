@@ -1,13 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="70" height="70">
   <defs>
     <!-- Gradients -->
-    <linearGradient id="noteGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#e6f3ff;stop-opacity:1" />
-      <stop offset="15%" style="stop-color:#b3d9ff;stop-opacity:1" />
-      <stop offset="35%" style="stop-color:#87ceeb;stop-opacity:1" />
-      <stop offset="65%" style="stop-color:#4682b4;stop-opacity:1" />
-      <stop offset="85%" style="stop-color:#2e5984;stop-opacity:1" />
+    <linearGradient id="bookCoverGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4682b4;stop-opacity:1" />
+      <stop offset="40%" style="stop-color:#2e5984;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#1a3a52;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="bookSpineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2e5984;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1a3a52;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f2233;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="pageEdgeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f0f0f0;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="bookTitleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffd700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#daa520;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="headphoneGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2e5984;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#4682b4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#87ceeb;stop-opacity:1" />
     </linearGradient>
     
     <linearGradient id="metallicHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -17,77 +36,81 @@
       <stop offset="100%" style="stop-color:#4682b4;stop-opacity:0.1" />
     </linearGradient>
     
-    <radialGradient id="glowGradient" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" style="stop-color:#87ceeb;stop-opacity:0.3" />
-      <stop offset="100%" style="stop-color:#4169e1;stop-opacity:0" />
-    </radialGradient>
-    
-    <!-- Filters -->
-    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="2" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.3"/>
+    <filter id="pageTexture" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" />
     </filter>
     
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-      <feMerge> 
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/> 
-      </feMerge>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
   
-  <!-- Background glow -->
-  <ellipse cx="50" cy="50" rx="45" ry="45" fill="url(#glowGradient)" opacity="0.6"/>
-  
-  <!-- Main music note -->
-  <g filter="url(#shadow)">
-    <!-- Note head (filled circle) -->
-    <ellipse cx="35" cy="70" rx="12" ry="9" fill="url(#noteGradient)" transform="rotate(-20 35 70)"/>
-    <!-- Metallic highlight on note head -->
-    <ellipse cx="32" cy="67" rx="6" ry="4" fill="url(#metallicHighlight)" transform="rotate(-20 32 67)" opacity="0.7"/>
+  <!-- Book Group -->
+  <g id="book" transform="translate(25, 25) scale(0.5)">
+    <!-- Book Spine -->
+    <rect x="10" y="20" width="10" height="60" rx="1" fill="url(#bookSpineGradient)" />
     
-    <!-- Note stem -->
-    <rect x="46" y="30" width="3" height="40" fill="url(#noteGradient)"/>
-    <!-- Metallic highlight on stem -->
-    <rect x="46.2" y="30" width="1.2" height="40" fill="url(#metallicHighlight)" opacity="0.6"/>
+    <!-- Book Back Edge -->
+    <path d="M80 20 L80 80 L75 75 L75 25 Z" fill="#1a3a52" />
     
-    <!-- Note flag/beam -->
-    <path d="M49 30 Q65 25 70 35 Q65 40 55 38 L49 40 Z" fill="url(#noteGradient)"/>
-    <!-- Metallic highlight on flag -->
-    <path d="M49 30 Q58 27 62 32 Q58 35 52 33 L49 35 Z" fill="url(#metallicHighlight)" opacity="0.5"/>
-  </g>
-  
-  <!-- Secondary smaller notes -->
-  <g filter="url(#glow)" opacity="0.7">
-    <!-- Small note 1 -->
-    <ellipse cx="65" cy="55" rx="6" ry="4" fill="url(#noteGradient)" transform="rotate(-15 65 55)"/>
-    <ellipse cx="63" cy="53" rx="3" ry="2" fill="url(#metallicHighlight)" transform="rotate(-15 63 53)" opacity="0.6"/>
-    <rect x="70" y="45" width="2" height="15" fill="url(#noteGradient)"/>
-    <rect x="70.2" y="45" width="0.8" height="15" fill="url(#metallicHighlight)" opacity="0.5"/>
+    <!-- Book Cover -->
+    <rect x="20" y="20" width="55" height="60" rx="2" fill="url(#bookCoverGradient)" />
     
-    <!-- Small note 2 -->
-    <ellipse cx="25" cy="45" rx="5" ry="3" fill="url(#noteGradient)" transform="rotate(10 25 45)"/>
-    <ellipse cx="23" cy="43" rx="2.5" ry="1.5" fill="url(#metallicHighlight)" transform="rotate(10 23 43)" opacity="0.6"/>
-    <rect x="29" y="35" width="1.5" height="12" fill="url(#noteGradient)"/>
-    <rect x="29.2" y="35" width="0.6" height="12" fill="url(#metallicHighlight)" opacity="0.5"/>
+    <!-- Book Cover Texture -->
+    <rect x="20" y="20" width="55" height="60" rx="2" fill="url(#bookCoverGradient)" opacity="0.7" filter="url(#pageTexture)" />
+    
+    <!-- Book Title Area -->
+    <rect x="30" y="35" width="35" height="8" rx="1" fill="url(#bookTitleGradient)" />
+    
+    <!-- Embossed Design -->
+    <rect x="30" y="50" width="35" height="2" rx="1" fill="#ffd700" opacity="0.7" />
+    <rect x="30" y="55" width="25" height="2" rx="1" fill="#ffd700" opacity="0.7" />
+    <rect x="30" y="60" width="30" height="2" rx="1" fill="#ffd700" opacity="0.7" />
+    
+    <!-- Page Edges -->
+    <path d="M20 20 L75 25 L75 75 L20 80 Z" fill="url(#pageEdgeGradient)" />
+    
+    <!-- Bookmark -->
+    <path d="M65 25 L65 40 L60 35 L55 40 L55 25 Z" fill="#ff6347" />
   </g>
   
-  <!-- Musical staff lines (subtle) -->
-  <g opacity="0.3">
-    <line x1="15" y1="75" x2="85" y2="75" stroke="url(#noteGradient)" stroke-width="0.5"/>
-    <line x1="15" y1="80" x2="85" y2="80" stroke="url(#noteGradient)" stroke-width="0.5"/>
+  <!-- Headphones Group -->
+  <g id="headphones" transform="translate(50, 50) scale(0.5)">
+    <!-- Headphone Band -->
+    <path d="M-40 -10 C-40 -40, 40 -40, 40 -10" stroke="url(#headphoneGradient)" stroke-width="8" fill="none" stroke-linecap="round" filter="url(#glow)" />
+    
+    <!-- Left Earpiece -->
+    <circle cx="-40" cy="0" r="15" fill="url(#headphoneGradient)" filter="url(#glow)" />
+    <circle cx="-40" cy="0" r="8" fill="#333" opacity="0.7" />
+    <path d="M-45 -10 L-35 -10" stroke="url(#metallicHighlight)" stroke-width="2" stroke-linecap="round" />
+    
+    <!-- Right Earpiece -->
+    <circle cx="40" cy="0" r="15" fill="url(#headphoneGradient)" filter="url(#glow)" />
+    <circle cx="40" cy="0" r="8" fill="#333" opacity="0.7" />
+    <path d="M35 -10 L45 -10" stroke="url(#metallicHighlight)" stroke-width="2" stroke-linecap="round" />
+    
+    <!-- Stems -->
+    <path d="M-40 15 L-40 30" stroke="url(#headphoneGradient)" stroke-width="5" stroke-linecap="round" />
+    <path d="M40 15 L40 30" stroke="url(#headphoneGradient)" stroke-width="5" stroke-linecap="round" />
   </g>
   
-  <!-- Sparkle effects -->
-  <g opacity="0.8">
-    <circle cx="75" cy="25" r="1.5" fill="#87ceeb">
-      <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
-    </circle>
-    <circle cx="20" cy="30" r="1" fill="#add8e6">
-      <animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite" begin="0.5s"/>
-    </circle>
-    <circle cx="80" cy="75" r="1.2" fill="#b0e0e6">
-      <animate attributeName="opacity" values="0.4;1;0.4" dur="1.8s" repeatCount="indefinite" begin="1s"/>
-    </circle>
-  </g>
+  <!-- Sound Waves -->
+  <path d="M30 50 Q35 45, 40 50 Q45 55, 50 50 Q55 45, 60 50 Q65 55, 70 50" stroke="#4682b4" stroke-width="1" fill="none" opacity="0.5">
+    <animate attributeName="opacity" values="0.5;0.8;0.5" dur="2s" repeatCount="indefinite" />
+  </path>
+  
+  <path d="M35 45 Q40 40, 45 45 Q50 50, 55 45 Q60 40, 65 45" stroke="#4682b4" stroke-width="1" fill="none" opacity="0.3">
+    <animate attributeName="opacity" values="0.3;0.6;0.3" dur="1.5s" repeatCount="indefinite" />
+  </path>
+  
+  <!-- Sparkles -->
+  <circle cx="70" cy="30" r="2" fill="white">
+    <animate attributeName="opacity" values="0;1;0" dur="2s" repeatCount="indefinite" />
+  </circle>
+  
+  <circle cx="30" cy="30" r="1.5" fill="white">
+    <animate attributeName="opacity" values="0;0.8;0" dur="3s" repeatCount="indefinite" />
+  </circle>
 </svg>

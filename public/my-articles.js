@@ -481,36 +481,20 @@ document.addEventListener('DOMContentLoaded', function() {
         hideEmptyState();
         
         articlesContainer.innerHTML = userArticles.map(article => {
-            const createdDate = new Date(article.created_at).toLocaleDateString();
-            const keyPoints = article.key_points || [];
-            
             return `
                 <div class="article-card" data-id="${article.id}">
                     <div class="article-header">
                         <h3 class="article-title">${escapeHtml(article.title)}</h3>
-                        <div class="article-date">${createdDate}</div>
                     </div>
                     <div class="article-content">
                         <p class="article-summary">${escapeHtml(article.summary || 'No summary available')}</p>
-                        ${keyPoints.length > 0 ? `
-                            <div class="key-points">
-                                <h4>Key Points:</h4>
-                                <ul>
-                                    ${keyPoints.slice(0, 3).map(point => `<li>${escapeHtml(point)}</li>`).join('')}
-                                    ${keyPoints.length > 3 ? `<li class="more-points">+${keyPoints.length - 3} more points</li>` : ''}
-                                </ul>
-                            </div>
-                        ` : ''}
                     </div>
-                    <div class="article-actions">
-                        <button class="btn btn-primary" onclick="viewArticle('${article.id}')">
-                            📖 View Article
+                    <div class="card-actions">
+                        <button class="btn-view" onclick="viewArticle('${article.id}')" title="Read Article">
+                            <i class="fas fa-eye"></i> Read
                         </button>
-                        <button class="btn btn-secondary" onclick="window.open('${article.url}', '_blank')">
-                            🔗 Original
-                        </button>
-                        <button class="btn btn-danger" onclick="deleteArticle('${article.id}')">
-                            🗑️ Delete
+                        <button class="btn-delete" onclick="deleteArticle('${article.id}')" title="Delete Article">
+                            <i class="fas fa-trash"></i> Delete
                         </button>
                     </div>
                 </div>
@@ -632,11 +616,71 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
-    window.deleteArticle = async function(articleId) {
-        if (!confirm('Are you sure you want to delete this article?')) {
-            return;
+    // Store the article ID to be deleted
+    let articleToDelete = null;
+    
+    // Delete confirmation modal elements
+    const deleteModal = document.getElementById('delete-confirmation-modal');
+    const closeDeleteModal = document.getElementById('close-delete-modal');
+    const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+    const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+    
+    // Set up delete modal event listeners
+    if (deleteModal) {
+        // Close button
+        if (closeDeleteModal) {
+            closeDeleteModal.addEventListener('click', () => {
+                deleteModal.style.display = 'none';
+                articleToDelete = null;
+            });
         }
         
+        // Cancel button
+        if (cancelDeleteBtn) {
+            cancelDeleteBtn.addEventListener('click', () => {
+                deleteModal.style.display = 'none';
+                articleToDelete = null;
+            });
+        }
+        
+        // Confirm delete button
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', async () => {
+                if (articleToDelete) {
+                    await performDeleteArticle(articleToDelete);
+                    deleteModal.style.display = 'none';
+                    articleToDelete = null;
+                }
+            });
+        }
+        
+        // Close when clicking outside
+        window.addEventListener('click', (event) => {
+            if (event.target === deleteModal) {
+                deleteModal.style.display = 'none';
+                articleToDelete = null;
+            }
+        });
+    }
+    
+    window.deleteArticle = function(articleId) {
+        // Store the article ID and show the confirmation modal
+        articleToDelete = articleId;
+        if (deleteModal) {
+            // Use flex display to center the modal vertically
+            deleteModal.style.display = 'flex';
+            deleteModal.style.alignItems = 'center';
+            deleteModal.style.justifyContent = 'center';
+        } else {
+            // Fallback to browser confirm if modal not found
+            if (confirm('Are you sure you want to delete this article?')) {
+                performDeleteArticle(articleId);
+            }
+        }
+    };
+    
+    // Function to perform the actual deletion
+    async function performDeleteArticle(articleId) {
         try {
             const response = await fetch(getApiUrl(`/api/user/audiobooks/${articleId}`), {
                 method: 'DELETE',

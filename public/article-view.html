@@ -38,10 +38,14 @@
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body class="article-view-page">
+    <div id="app">
+        <button id="floating-music-btn" title="Toggle background music">
+            <i class="fas fa-music"></i>
+        </button>
     <header class="main-nav">
         <div class="nav-container">
             <div class="nav-brand">
@@ -159,10 +163,7 @@
                             <option value="default">Default</option>
                         </select>
                     </div>
-                    <button id="music-toggle-btn" class="music-toggle" title="Toggle background music">
-                        <i class="fas fa-music"></i>
-                        <span>Music</span>
-                    </button>
+    
                 </div>
             </div>
 
@@ -208,8 +209,7 @@
         <div class="modal-content auth-modal-content">
             <div class="modal-header">
                 <div class="auth-toggle">
-                    <button type="button" id="login-tab" class="auth-tab">Login</button>
-                    <button type="button" id="signup-tab" class="auth-tab">Sign Up</button>
+                    <button type="button" id="login-tab" class="auth-tab active">Login / Sign Up</button>
                 </div>
                 <button class="close-btn" id="auth-close">&times;</button>
             </div>
@@ -287,32 +287,7 @@
         <i class="fas fa-crosshairs"></i>
     </button>
 
-    <!-- Profile Setup Modal -->
-    <div id="profile-setup-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Complete Your Profile Setup</h2>
-                <span class="close" id="close-profile-setup-modal">&times;</span>
-            </div>
-            <form id="profile-setup-form">
-                <div class="form-group">
-                    <label for="security-code">Set a 6-Digit Security Code (Optional)</label>
-                    <input type="text" id="security-code" name="security-code" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6 digits (e.g., 123456)">
-                    <small class="form-help">This code will help you recover your account if you forget your password.</small>
-                </div>
-                <div class="warning-message" style="background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 10px; border-radius: 4px; margin: 10px 0;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Warning:</strong> If you don't set a security code, you may lose access to your account if you forget your password!
-                </div>
-                <div class="form-actions">
-                    <button type="button" id="skip-security-code" class="btn btn-secondary">Skip for Now</button>
-                    <button type="submit" class="btn btn-primary">Save Security Code</button>
-                </div>
-            </form>
-            <div id="profile-setup-error" class="error-message" style="display: none;"></div>
-            <div id="profile-setup-success" class="success-message" style="display: none;"></div>
-        </div>
-    </div>
+    <!-- Profile Setup Modal - Removed security code setup as password reset is now implemented -->
 
     <!-- Contact Us Floating Button -->
     <div id="contact-us-btn" class="contact-us-floating-btn">
@@ -348,7 +323,6 @@
                         <select id="contact-topic" name="topic" required>
                             <option value="">Select a topic...</option>
                             <option value="general inquiry">General Inquiry</option>
-                            <option value="forgot 6 digit passcode">Forgot 6 Digit Passcode</option>
                             <option value="business inquiry">Business Inquiry</option>
                             <option value="technical support">Technical Support</option>
                         </select>

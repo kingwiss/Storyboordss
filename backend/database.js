@@ -24,17 +24,9 @@ db.serialize(() => {
         subscription_end DATETIME,
         email_verified BOOLEAN DEFAULT FALSE,
         verification_token TEXT,
-        security_code TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
-
-    // Add security_code column to existing users table if it doesn't exist
-    db.run(`ALTER TABLE users ADD COLUMN security_code TEXT`, (err) => {
-        if (err && !err.message.includes('duplicate column name')) {
-            console.error('Error adding security_code column:', err.message);
-        }
-    });
 
     // Create user_audiobooks table for storing user's generated audiobooks
     db.run(`CREATE TABLE IF NOT EXISTS user_audiobooks (
@@ -290,22 +282,6 @@ const dbHelpers = {
                     reject(err);
                 } else {
                     resolve({ success: true });
-                }
-            });
-            stmt.finalize();
-        });
-    },
-
-    updateUserSecurityCode: (userId, securityCode) => {
-        return new Promise((resolve, reject) => {
-            const query = 'UPDATE users SET security_code = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
-            
-            const stmt = db.prepare(query);
-            stmt.run([securityCode, userId], function(err) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve({ success: true, changes: this.changes });
                 }
             });
             stmt.finalize();

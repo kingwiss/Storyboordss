@@ -8,13 +8,18 @@
     <link rel="icon" type="image/x-icon" href="favicon.svg">
     <link rel="apple-touch-icon" href="logo.svg">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="feature-cards.css">
+    <link rel="stylesheet" href="floating-icons.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fredoka:wght@300;400;500;600;700&family=Fredoka+One&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div id="app">
+        <button id="floating-music-btn" title="Toggle background music">
+            <i class="fas fa-music"></i>
+        </button>
         <header>
             <div class="header-content">
                 <h1><img src="logo.svg" alt="Cerebray Logo" class="logo-img">Cerebray</h1>
@@ -27,23 +32,25 @@
                         <i class="fas fa-book"></i>
                         <span>My Articles</span>
                     </a>
+                    <!-- Auth navigation links -->
+                    <a href="#" id="login-btn" class="nav-link auth-logged-out">
+                        <i class="fas fa-sign-in-alt"></i>
+                        <span>Login / Sign Up</span>
+                    </a>
+                    
                     <a href="#" id="current-article-nav" class="nav-link" style="display: none;">
                         <i class="fas fa-play-circle"></i>
                         <span>Current Article</span>
                     </a>
+                    
+                    <a href="#" id="profile-nav-btn" class="nav-link auth-logged-in" style="display: none;">
+                        <i class="fas fa-user"></i>
+                        <span>Profile</span>
+                    </a>
                 </nav>
-                <button id="music-toggle-btn" class="music-toggle" title="Toggle background music">
-                    <i class="fas fa-music"></i>
-                    <span>Music</span>
-                </button>
                 <div id="auth-section">
-                    <div id="auth-buttons" class="auth-logged-out">
-                        <button id="login-btn" class="auth-btn">Login</button>
-                        <button id="signup-btn" class="auth-btn">Sign Up</button>
-                    </div>
                     <div id="user-info" class="auth-logged-in" style="display: none;">
                         <span id="welcome-text">Welcome, <span id="username"></span>!</span>
-                        <button id="profile-btn" class="auth-btn">Profile</button>
                         <button id="logout-btn" class="auth-btn">Logout</button>
                     </div>
                 </div>
@@ -52,7 +59,7 @@
         <main>
             <div id="input-container">
                 <input type="text" id="article-url" placeholder="Enter article URL">
-                <button id="generate-btn">Generate Audiobook</button>
+                <button id="generate-btn">Generate</button>
                 
             </div>
             <div id="loading-container" style="display: none;">
@@ -63,6 +70,38 @@
                         <div id="progress-bar-fill"></div>
                     </div>
                     <span id="progress-percentage">0%</span>
+                </div>
+            </div>
+            
+            <!-- Feature Description Cards -->
+            <div class="feature-cards">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-headphones"></i>
+                    </div>
+                    <h3>Listen Anywhere</h3>
+                    <p>Convert any article into a high-quality audiobook that you can listen to on the go.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <h3>Instant Generation</h3>
+                    <p>Our AI processes your article in seconds, delivering fast and accurate audio conversion.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-save"></i>
+                    </div>
+                    <h3>Save & Share</h3>
+                    <p>Save your favorite articles to your library and share them with friends and colleagues.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3>Mobile Friendly</h3>
+                    <p>Access your audiobooks from any device with our responsive and user-friendly interface.</p>
                 </div>
             </div>
 
@@ -169,19 +208,11 @@
                     <label for="forgot-email">Email Address:</label>
                     <input type="email" id="forgot-email" required placeholder="Enter your email address">
                 </div>
-                <div class="form-group">
-                    <label for="forgot-security-code">6-Digit Security Code:</label>
-                    <input type="text" id="forgot-security-code" maxlength="6" pattern="[0-9]{6}" placeholder="Enter your 6-digit security code" required>
-                    <p class="form-help-text">Enter the 6-digit security code you set up during registration.</p>
-                </div>
-                <div class="warning-message" style="background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 10px; border-radius: 4px; margin: 10px 0; font-size: 14px;">
-                    <i class="fas fa-info-circle"></i>
-                    <strong>Note:</strong> If you didn't set up a security code, please contact support for account recovery.
-                </div>
                 <div class="form-actions">
-                    <button type="submit" class="primary-btn">Verify & Reset Password</button>
+                    <button type="submit" class="primary-btn">Send Reset Link</button>
                     <button type="button" id="back-to-login" class="secondary-btn">Back to Login</button>
                 </div>
+                <p class="form-help-text">We'll send you a password reset link to your email address.</p>
             </form>
             <div id="forgot-password-error" class="error-message" style="display: none;"></div>
             <div id="forgot-password-success" class="success-message" style="display: none;"></div>
@@ -213,28 +244,18 @@
         </div>
     </div>
 
-    <!-- Profile Setup Modal -->
+    <!-- Profile Setup Modal (removed security code setup) -->
     <div id="profile-setup-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Complete Your Profile Setup</h2>
+                <h2>Welcome! Complete Your Profile</h2>
                 <span class="close" id="close-profile-setup-modal">&times;</span>
             </div>
-            <form id="profile-setup-form">
-                <div class="form-group">
-                    <label for="security-code">Set a 6-Digit Security Code (Optional)</label>
-                    <input type="text" id="security-code" name="security-code" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6 digits (e.g., 123456)">
-                    <small class="form-help">This code will help you recover your account if you forget your password.</small>
-                </div>
-                <div class="warning-message" style="background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 10px; border-radius: 4px; margin: 10px 0;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Warning:</strong> If you don't set a security code, you may lose access to your account if you forget your password!
-                </div>
-                <div class="form-actions">
-                    <button type="button" id="skip-security-code" class="btn btn-secondary">Skip for Now</button>
-                    <button type="submit" class="btn btn-primary">Save Security Code</button>
-                </div>
-            </form>
+            <p>Your account has been created successfully. You can now start using all features!</p>
+            
+            <div class="form-actions">
+                <button type="button" id="skip-profile-setup" class="btn btn-primary">Continue to App</button>
+            </div>
             <div id="profile-setup-error" class="error-message" style="display: none;"></div>
             <div id="profile-setup-success" class="success-message" style="display: none;"></div>
         </div>
@@ -384,26 +405,7 @@
                                         </div>
                                         <h4 class="section-title">Security</h4>
                                     </div>
-                                    <div class="preference-group">
-                                        <label class="preference-label">
-                                            <i class="fas fa-key"></i>
-                                            6-Digit Security Code
-                                        </label>
-                                        <p class="preference-description">Set or update your 6-digit security code for password recovery</p>
-                                        <div class="security-code-container">
-                                            <input type="text" id="profile-security-code" class="preference-input" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6 digits (e.g., 123456)">
-                                            <button id="update-security-code" class="preferences-btn secondary">
-                                                <i class="fas fa-save"></i>
-                                                Update Code
-                                            </button>
-                                        </div>
-                                        <div id="security-code-status" class="security-code-status">
-                                            <span id="security-code-indicator" class="status-indicator">
-                                                <i class="fas fa-times-circle" style="color: #dc3545;"></i>
-                                                No security code set
-                                            </span>
-                                        </div>
-                                    </div>
+
                                 </div>
                                 <div class="preferences-actions">
                                     <button id="save-preferences" class="preferences-btn primary">
@@ -504,7 +506,6 @@
                         <select id="contact-topic" name="topic" required>
                             <option value="">Select a topic...</option>
                             <option value="general inquiry">General Inquiry</option>
-                            <option value="forgot 6 digit passcode">Forgot 6 Digit Passcode</option>
                             <option value="business inquiry">Business Inquiry</option>
                             <option value="technical support">Technical Support</option>
                         </select>
@@ -537,6 +538,8 @@
     <script src="floating-tts-tracker.js"></script>
     <script src="touch-gestures.js"></script>
     <script src="contact.js"></script>
-    <script src="script.js?v=8"></script>
+    <script src="auth.js"></script>
+    <script src="floating-icons.js"></script>
+    <script src="script.js?v=12"></script>
 </body>
 </html>

@@ -1,0 +1,76 @@
+/* Main Content Area Styling */
+.main-content {
+    flex: 1;
+    padding: 4rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: calc(100vh - 200px);
+}
+
+.content-wrapper {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.section-spacing {
+    margin-bottom: 3rem;
+}
+
+.card-container {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+    margin-bottom: 2rem;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.mb-large {
+    margin-bottom: 3rem;
+}
+
+.mb-medium {
+    margin-bottom: 2rem;
+}
+
+.mb-small {
+    margin-bottom: 1rem;
+}
+
+.mt-large {
+    margin-top: 3rem;
+}
+
+.mt-medium {
+    margin-top: 2rem;
+}
+
+.mt-small {
+    margin-top: 1rem;
+}
+
+/* Responsive spacing */
+@media (max-width: 768px) {
+    .main-content {
+        padding: 2rem 1rem;
+    }
+    
+    .card-container {
+        padding: 1.5rem;
+        border-radius: 16px;
+    }
+    
+    .mb-large {
+        margin-bottom: 2rem;
+    }
+    
+    .mt-large {
+        margin-top: 2rem;
+    }
+}

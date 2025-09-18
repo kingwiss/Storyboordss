@@ -1,10 +1,12 @@
 // Global variables
-let currentUser = null;
-let authToken = localStorage.getItem('authToken');
 let userArticles = [];
+let auth; // Use the shared RobustAuth instance
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize the shared authentication system
+    auth = new RobustAuth();
+    
     // Authentication elements - using same IDs as main app
     const loginBtn = document.getElementById('login-btn');
     const signupBtn = document.getElementById('signup-btn');
@@ -29,6 +31,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const emptyState = document.getElementById('empty-state');
     const loadingState = document.getElementById('loading-state');
     
+    // Initialize the articles page
+    initializeArticlesPage();
+    
     // Articles data will be initialized in global scope
     
     // Floating button functionality is now handled by floating-tts-tracker.js
@@ -37,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     
-    // Authentication functions - copied from main app
+    // Authentication functions - use the shared RobustAuth instance
     function showError(element, message) {
         element.textContent = message;
         element.style.display = 'block';
@@ -47,42 +52,52 @@ document.addEventListener('DOMContentLoaded', function() {
         element.style.display = 'none';
     }
     
+    // Use the auth instance's UI update method
     function updateAuthUI() {
-        if (currentUser) {
-            if (authButtons) authButtons.style.display = 'none';
-            if (userInfo) userInfo.style.display = 'flex';
-            if (usernameSpan) usernameSpan.textContent = currentUser.username;
+        // This is now handled by the RobustAuth class
+        // Just fetch articles if we're authenticated
+        if (auth && auth.currentUser) {
+            fetchUserArticles();
         } else {
-            if (authButtons) authButtons.style.display = 'flex';
-            if (userInfo) userInfo.style.display = 'none';
+            // Show empty state if not logged in
+            if (articlesContainer) articlesContainer.style.display = 'none';
+            if (emptyState) {
+                emptyState.style.display = 'flex';
+                emptyState.querySelector('p').textContent = 'Please log in to view your articles';
+            }
         }
     }
     
-    async function checkAuthStatus() {
-        console.log('=== DEBUG: Checking auth status, authToken:', authToken ? 'exists' : 'null');
-        if (authToken) {
-            try {
-                console.log('=== DEBUG: Making request to /api/auth/me');
-                const response = await fetch(getApiUrl('/api/auth/me'), {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    credentials: 'include'
-                });
-                
-                console.log('=== DEBUG: Auth response status:', response.status);
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('=== DEBUG: Auth successful, user:', data.user);
-                    currentUser = data.user;
-                    updateAuthUI();
+    // Replace the checkAuthStatus function with a call to the shared auth instance
+    function initializeArticlesPage() {
+        // The auth instance will handle authentication status
+        // We just need to set up the articles page based on auth status
+        if (auth && auth.currentUser) {
+            fetchUserArticles();
+        } else {
+            // Show login prompt if not authenticated
+            if (articlesContainer) articlesContainer.style.display = 'none';
+            if (emptyState) {
+                emptyState.style.display = 'flex';
+                emptyState.querySelector('p').textContent = 'Please log in to view your articles';
+            }
+        }
+        
+        // Set up event listener for auth changes
+        document.addEventListener('authStateChanged', function(e) {
+            if (e.detail.isAuthenticated) {
+                fetchUserArticles();
+            } else {
+                // Show login prompt
+                if (articlesContainer) articlesContainer.style.display = 'none';
+                if (emptyState) {
+                    emptyState.style.display = 'flex';
+                    emptyState.querySelector('p').textContent = 'Please log in to view your articles';
+                }
+            }
+        });
+    }
                     loadUserArticles();
-                    
-                    // Check if user needs to set up security code (only once per session)
-                    if (currentUser && !currentUser.hasSecurityCode && !sessionStorage.getItem('profileSetupPrompted')) {
-                        sessionStorage.setItem('profileSetupPrompted', 'true');
-                        showProfileSetupModal();
-                    }
                 } else {
                     console.log('=== DEBUG: Auth failed, removing token');
                     // Token is invalid, remove it
@@ -134,20 +149,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // Profile modal elements
     const profileModal = document.getElementById('profile-modal');
     const closeProfileModal = document.getElementById('close-profile-modal');
+    const profileNavBtn = document.getElementById('profile-nav-btn');
     
-    if (profileBtn) {
-        profileBtn.addEventListener('click', () => {
-            profileModal.style.display = 'block';
-            populateProfileDataImmediately();
-            // Load user preferences and populate voice selection
-            loadUserPreferences();
-            populateVoiceSelection();
-            // Start theme preview mode
-            if (window.themeManager) {
-                window.themeManager.startPreviewMode();
-            }
-        });
-    }
+    // Add event listeners to both profile buttons
+    const profileButtons = [profileBtn, profileNavBtn];
+    profileButtons.forEach(btn => {
+        if (btn) {
+            btn.addEventListener('click', () => {
+                profileModal.style.display = 'block';
+                populateProfileDataImmediately();
+                // Load user preferences and populate voice selection
+                loadUserPreferences();
+                populateVoiceSelection();
+                // Start theme preview mode
+                if (window.themeManager) {
+                    window.themeManager.startPreviewMode();
+                }
+            });
+        }
+    });
     
     // Close profile modal
     if (closeProfileModal) {
@@ -234,11 +254,54 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Forgot Password functionality
+    const forgotPasswordBtn = document.getElementById('forgot-password-btn');
+    const forgotPasswordModal = document.getElementById('forgot-password-modal');
+    const forgotPasswordClose = document.getElementById('forgot-password-close');
+    const forgotPasswordForm = document.getElementById('forgot-password-form');
+    const forgotPasswordError = document.getElementById('forgot-password-error');
+    const forgotPasswordSuccess = document.getElementById('forgot-password-success');
+    const backToLoginBtn = document.getElementById('back-to-login');
+    
+    const resetPasswordModal = document.getElementById('reset-password-modal');
+    const resetPasswordClose = document.getElementById('reset-password-close');
+    const resetPasswordForm = document.getElementById('reset-password-form');
+    const resetPasswordError = document.getElementById('reset-password-error');
+    const resetPasswordSuccess = document.getElementById('reset-password-success');
+
+    // Open forgot password modal
+    if (forgotPasswordBtn && forgotPasswordModal) {
+        forgotPasswordBtn.addEventListener('click', () => {
+            closeModal(loginModal);
+            openModal(forgotPasswordModal);
+        });
+    }
+
+    // Close forgot password modal
+    if (forgotPasswordClose && forgotPasswordModal) {
+        forgotPasswordClose.addEventListener('click', () => closeModal(forgotPasswordModal));
+    }
+
+    // Back to login from forgot password
+    if (backToLoginBtn && forgotPasswordModal && loginModal) {
+        backToLoginBtn.addEventListener('click', () => {
+            closeModal(forgotPasswordModal);
+            openModal(loginModal);
+        });
+    }
+
+    // Close reset password modal
+    if (resetPasswordClose && resetPasswordModal) {
+        resetPasswordClose.addEventListener('click', () => closeModal(resetPasswordModal));
+    }
+
     // Close modals when clicking outside - copied from main app
-    if (loginModal || signupModal) {
+    if (loginModal || signupModal || forgotPasswordModal || resetPasswordModal) {
         window.addEventListener('click', (event) => {
             if (loginModal && event.target === loginModal) closeModal(loginModal);
             if (signupModal && event.target === signupModal) closeModal(signupModal);
+            if (forgotPasswordModal && event.target === forgotPasswordModal) closeModal(forgotPasswordModal);
+            if (resetPasswordModal && event.target === resetPasswordModal) closeModal(resetPasswordModal);
         });
     }
     
@@ -252,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const password = document.getElementById('login-password').value;
             
             try {
-                const response = await fetch(getApiUrl('/api/auth/login'), {
+                const response = await fetch(getApiUrl('/api/login'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -271,11 +334,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     closeModal(loginModal);
                     loginForm.reset();
                     loadUserArticles();
-                    
-                    // Show profile setup modal if user doesn't have a security code
-                    if (!currentUser.hasSecurityCode) {
-                        showProfileSetupModal();
-                    }
                 } else {
                     showError(loginError, data.error || 'Login failed');
                 }
@@ -330,29 +388,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    async function checkPasswordUniqueness(password) {
-        if (!password || password.length < 8) return;
-        
-        try {
-            const response = await fetch(getApiUrl('/api/auth/check-password'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ password })
-            });
-            
-            const data = await response.json();
-            const uniqueReq = document.getElementById('unique-req');
-            if (uniqueReq) {
-                uniqueReq.className = data.unique ? 'requirement valid' : 'requirement invalid';
-            }
-            return data.unique;
-        } catch (error) {
-            console.error('Password uniqueness check failed:', error);
-            return true; // Assume unique if check fails
-        }
-    }
+    // Password uniqueness check removed - passwords don't need to be unique
     
     // Add password validation event listeners
     const signupPassword = document.getElementById('signup-password');
@@ -362,7 +398,6 @@ document.addEventListener('DOMContentLoaded', function() {
         signupPassword.addEventListener('input', (e) => {
             const password = e.target.value;
             updatePasswordRequirements(password);
-            checkPasswordUniqueness(password);
             
             if (signupConfirmPassword && signupConfirmPassword.value) {
                 updatePasswordMatch(password, signupConfirmPassword.value);
@@ -394,7 +429,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             try {
-                const response = await fetch(getApiUrl('/api/auth/register'), {
+                const response = await fetch(getApiUrl('/api/register'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -426,6 +461,95 @@ document.addEventListener('DOMContentLoaded', function() {
                     name: error.name
                 });
                 showError(signupError, `Network error: ${error.message}. Please check console for details.`);
+            }
+        });
+    }
+
+    // Forgot Password form submission
+    if (forgotPasswordForm && forgotPasswordError && forgotPasswordSuccess) {
+        forgotPasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError(forgotPasswordError);
+            hideError(forgotPasswordSuccess);
+            
+            const email = document.getElementById('forgot-email').value;
+            
+            try {
+                const response = await fetch(getApiUrl('/api/auth/forgot-password'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showError(forgotPasswordSuccess, 'Password reset link sent to your email!');
+                    forgotPasswordForm.reset();
+                    
+                    // Close modal after showing success message
+                    setTimeout(() => {
+                        closeModal(forgotPasswordModal);
+                        hideError(forgotPasswordSuccess);
+                    }, 3000);
+                } else {
+                    showError(forgotPasswordError, data.message || 'Failed to send reset email');
+                }
+            } catch (error) {
+                console.error('Password reset error:', error);
+                showError(forgotPasswordError, 'Network error. Please try again.');
+            }
+        });
+    }
+
+    // Reset Password form submission
+    if (resetPasswordForm && resetPasswordError && resetPasswordSuccess) {
+        resetPasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError(resetPasswordError);
+            hideError(resetPasswordSuccess);
+            
+            const token = localStorage.getItem('resetToken');
+            const password = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-new-password').value;
+            
+            if (!token) {
+                showError(resetPasswordError, 'Reset session expired. Please try the forgot password process again.');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showError(resetPasswordError, 'Passwords do not match');
+                return;
+            }
+            
+            try {
+                const response = await fetch(getApiUrl('/api/auth/reset-password'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showError(resetPasswordSuccess, 'Password reset successful! You can now login with your new password.');
+                    resetPasswordForm.reset();
+                    localStorage.removeItem('resetToken'); // Clean up the token
+                    setTimeout(() => {
+                        closeModal(resetPasswordModal);
+                        openModal(loginModal);
+                    }, 2000);
+                } else {
+                    showError(resetPasswordError, data.error || 'Failed to reset password');
+                }
+            } catch (error) {
+                console.error('Reset password error:', error);
+                showError(resetPasswordError, 'Network error. Please try again.');
             }
         });
     }
@@ -1071,7 +1195,6 @@ function previewVoice(voice, button) {
 function initializePreferences() {
     const saveBtn = document.getElementById('save-preferences');
     const resetBtn = document.getElementById('reset-preferences');
-    const updateSecurityCodeBtn = document.getElementById('update-security-code');
     
     if (saveBtn) {
         saveBtn.addEventListener('click', saveUserPreferences);
@@ -1079,10 +1202,6 @@ function initializePreferences() {
     
     if (resetBtn) {
         resetBtn.addEventListener('click', resetUserPreferences);
-    }
-    
-    if (updateSecurityCodeBtn) {
-        updateSecurityCodeBtn.addEventListener('click', updateSecurityCode);
     }
 
     // Initialize voice selection when voices are ready
@@ -1115,7 +1234,7 @@ function saveUserPreferences() {
     };
 
     fetch(getApiUrl('/api/user/preferences'), {
-        method: 'PUT',
+        method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -1169,59 +1288,6 @@ function resetUserPreferences() {
     }
     
     showNotification('Preferences reset to default', 'info');
-}
-
-// Update security code
-async function updateSecurityCode() {
-    const securityCodeInput = document.getElementById('profile-security-code');
-    const statusIndicator = document.getElementById('security-code-indicator');
-    
-    if (!securityCodeInput) {
-        console.error('Security code input not found');
-        return;
-    }
-    
-    const securityCode = securityCodeInput.value.trim();
-    
-    // Validate security code format
-    if (!securityCode || securityCode.length !== 6 || !/^[0-9]{6}$/.test(securityCode)) {
-        showNotification('Please enter a valid 6-digit security code (numbers only)', 'error');
-        return;
-    }
-    
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-        showNotification('Please log in to update your security code', 'error');
-        return;
-    }
-    
-    try {
-        const response = await fetch(getApiUrl('/api/auth/set-security-code'), {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ securityCode })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            showNotification('Security code updated successfully!', 'success');
-            securityCodeInput.value = '';
-            
-            // Update status indicator
-            if (statusIndicator) {
-                statusIndicator.innerHTML = '<i class="fas fa-check-circle" style="color: #28a745;"></i> Security code set';
-            }
-        } else {
-            showNotification(data.error || 'Failed to update security code', 'error');
-        }
-    } catch (error) {
-        console.error('Error updating security code:', error);
-        showNotification('Network error. Please try again.', 'error');
-    }
 }
 
 // Show notification function (simplified version)
@@ -1283,87 +1349,7 @@ function initializeReturnToArticleButton() {
     }
 }
 
-// Profile Setup Modal Functions
-function showProfileSetupModal() {
-    console.log('Showing profile setup modal...');
-    const profileSetupModal = document.getElementById('profile-setup-modal');
-    const profileSetupForm = document.getElementById('profile-setup-form');
-    const skipButton = document.getElementById('skip-security-code');
-    const closeButton = document.getElementById('close-profile-setup-modal');
-    const errorDiv = document.getElementById('profile-setup-error');
-    const successDiv = document.getElementById('profile-setup-success');
-    
-    if (profileSetupModal) {
-        profileSetupModal.style.display = 'block';
-        
-        // Handle form submission
-        if (profileSetupForm) {
-            profileSetupForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const securityCode = document.getElementById('security-code').value.trim();
-                
-                if (securityCode && securityCode.length === 6 && /^[0-9]{6}$/.test(securityCode)) {
-                    try {
-                        const response = await fetch(getApiUrl('/api/auth/set-security-code'), {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                            },
-                            body: JSON.stringify({ securityCode })
-                        });
-                        
-                        if (response.ok) {
-                            successDiv.textContent = 'Security code saved successfully!';
-                            successDiv.style.display = 'block';
-                            errorDiv.style.display = 'none';
-                            // Clear the session flag since user now has security code
-                            sessionStorage.removeItem('profileSetupPrompted');
-                            setTimeout(() => {
-                                profileSetupModal.style.display = 'none';
-                            }, 2000);
-                        } else {
-                            const data = await response.json();
-                            errorDiv.textContent = data.error || 'Failed to save security code';
-                            errorDiv.style.display = 'block';
-                            successDiv.style.display = 'none';
-                        }
-                    } catch (error) {
-                        console.error('Error saving security code:', error);
-                        errorDiv.textContent = 'Network error. Please try again.';
-                        errorDiv.style.display = 'block';
-                        successDiv.style.display = 'none';
-                    }
-                } else {
-                    errorDiv.textContent = 'Please enter a valid 6-digit code (numbers only)';
-                    errorDiv.style.display = 'block';
-                    successDiv.style.display = 'none';
-                }
-            });
-        }
-        
-        // Handle skip button
-        if (skipButton) {
-            skipButton.addEventListener('click', () => {
-                profileSetupModal.style.display = 'none';
-            });
-        }
-        
-        // Handle close button
-        if (closeButton) {
-            closeButton.addEventListener('click', () => {
-                profileSetupModal.style.display = 'none';
-            });
-        }
-        
-        // Close modal when clicking outside
-        profileSetupModal.addEventListener('click', (event) => {
-            if (event.target === profileSetupModal) {
-                profileSetupModal.style.display = 'none';
-            }
-        });
-    }
-}
+// Profile Setup Modal Functions - Removed as security code feature is no longer needed
 
 // Initialize Return to Article button when page loads
 document.addEventListener('DOMContentLoaded', function() {

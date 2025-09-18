@@ -13,9 +13,109 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Modern styling for My Articles page */
+        body {
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+        
+        .page-header {
+            text-align: center;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .page-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .page-description {
+            font-size: 1.1rem;
+            color: #6B7280;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .articles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            padding: 0 1.5rem;
+        }
+        
+        .return-to-article-btn {
+            background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 1rem;
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .return-to-article-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            max-width: 500px;
+            margin: 2rem auto;
+        }
+        
+        .empty-state .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #4B5563;
+        }
+        
+        .empty-state p a {
+            color: #6366F1;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        .empty-state p a:hover {
+            text-decoration: underline;
+        }
+        
+        .loading-state {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px;
+        }
+    </style>
 </head>
 <body>
     <div id="app">
+        <button id="floating-music-btn" title="Toggle background music" class="modern-floating-btn">
+            <i class="fas fa-music"></i>
+        </button>
         <header>
             <div class="header-content">
                 <h1><img src="logo.svg" alt="Cerebray Logo" style="height: 40px; width: 40px; margin-right: 10px; vertical-align: middle;">Cerebray</h1>
@@ -28,60 +128,64 @@
                         <i class="fas fa-book"></i>
                         <span>My Articles</span>
                     </a>
+                    <!-- Auth navigation links -->
+                    <a href="#" id="login-btn" class="nav-link auth-logged-out">
+                        <i class="fas fa-sign-in-alt"></i>
+                        <span>Login / Sign Up</span>
+                    </a>
+
                     <a href="#" id="current-article-nav" class="nav-link" style="display: none;">
                         <i class="fas fa-play-circle"></i>
                         <span>Current Article</span>
                     </a>
+                    
+                    <a href="#" id="profile-nav-btn" class="nav-link auth-logged-in" style="display: none;">
+                        <i class="fas fa-user"></i>
+                        <span>Profile</span>
+                    </a>
                 </nav>
                 <div class="header-controls">
-                    <button id="music-toggle" class="music-toggle" title="Toggle ambient music">
-                        <i class="fas fa-music"></i>
-                    </button>
                 </div>
                 <div id="auth-section">
-                    <div id="auth-buttons" class="auth-logged-out">
-                        <button id="login-btn" class="auth-btn">Login</button>
-                        <button id="signup-btn" class="auth-btn">Sign Up</button>
-                    </div>
                     <div id="user-info" class="auth-logged-in" style="display: none;">
                         <span id="welcome-text">Welcome, <span id="username"></span>!</span>
-                        <button id="profile-btn" class="auth-btn">Profile</button>
                         <button id="logout-btn" class="auth-btn">Logout</button>
                     </div>
                 </div>
             </div>
         </header>
         <main>
-            <div class="page-header">
-                <h2>My Articles</h2>
-                <p class="page-description">Manage and listen to your generated audiobooks</p>
-            </div>
-            
-            <!-- Return to Article Button -->
-            <div id="return-to-article-container" class="return-to-article-container" style="display: none;">
-                <button id="return-to-article-btn" class="return-to-article-btn">
-                    <i class="fas fa-arrow-left"></i>
-                    <div class="button-content">
-                        <div class="button-title">Return to Article</div>
-                        <div id="article-title-display" class="article-title">Continue reading...</div>
-                    </div>
-                </button>
-            </div>
-            
-            <!-- Articles Container -->
-            <div id="articles-container" class="articles-grid">
-                <!-- Articles will be loaded here -->
-            </div>
-            
-            <!-- Empty State -->
-            <div id="empty-state" class="empty-state" style="display: none;">
-                <div class="empty-icon">📚</div>
-                <h3>No Articles Yet</h3>
-                <p>You haven't generated any audiobooks yet. <a href="index.html">Create your first one!</a></p>
-            </div>
-            
-            <!-- Loading State -->
-            <div id="loading-state" class="loading-state" style="display: none;">
+            <div class="container">
+                <div class="page-header">
+                    <h2>My Articles</h2>
+                    <p class="page-description">Manage and listen to your generated audiobooks</p>
+                </div>
+                
+                <!-- Return to Article Button -->
+                <div id="return-to-article-container" class="return-to-article-container" style="display: none;">
+                    <button id="return-to-article-btn" class="return-to-article-btn">
+                        <i class="fas fa-arrow-left"></i>
+                        <div class="button-content">
+                            <div class="button-title">Return to Article</div>
+                            <div id="article-title-display" class="article-title">Continue reading...</div>
+                        </div>
+                    </button>
+                </div>
+                
+                <!-- Articles Container -->
+                <div id="articles-container" class="articles-grid">
+                    <!-- Articles will be loaded here -->
+                </div>
+                
+                <!-- Empty State -->
+                <div id="empty-state" class="empty-state" style="display: none;">
+                    <div class="empty-icon">📚</div>
+                    <h3>No Articles Yet</h3>
+                    <p>You haven't generated any audiobooks yet. <a href="index.html">Create your first one!</a></p>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="loading-state" class="loading-state" style="display: none;">
                 <div class="spinner"></div>
                 <p>Loading your articles...</p>
             </div>
@@ -111,6 +215,9 @@
                 <div class="form-actions">
                     <button type="submit" class="primary-btn">Login</button>
                     <button type="button" id="switch-to-signup" class="secondary-btn">Don't have an account? Sign up</button>
+                </div>
+                <div class="forgot-password-link">
+                    <button type="button" id="forgot-password-btn" class="link-btn">Forgot your password?</button>
                 </div>
             </form>
             <div id="login-error" class="error-message" style="display: none;"></div>
@@ -169,6 +276,54 @@
                 </div>
             </form>
             <div id="signup-error" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgot-password-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Reset Password</h2>
+                <span class="close" id="forgot-password-close">&times;</span>
+            </div>
+            <form id="forgot-password-form">
+                <div class="form-group">
+                    <label for="forgot-email">Email Address:</label>
+                    <input type="email" id="forgot-email" required placeholder="Enter your email address">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="primary-btn">Send Reset Link</button>
+                    <button type="button" id="back-to-login" class="secondary-btn">Back to Login</button>
+                </div>
+                <p class="form-help-text">We'll send you a password reset link to your email address.</p>
+            </form>
+            <div id="forgot-password-error" class="error-message" style="display: none;"></div>
+            <div id="forgot-password-success" class="success-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div id="reset-password-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Set New Password</h2>
+                <span class="close" id="reset-password-close">&times;</span>
+            </div>
+            <form id="reset-password-form">
+                <div class="form-group">
+                    <label for="new-password">New Password:</label>
+                    <input type="password" id="new-password" required minlength="6" placeholder="Enter new password">
+                </div>
+                <div class="form-group">
+                    <label for="confirm-new-password">Confirm New Password:</label>
+                    <input type="password" id="confirm-new-password" required minlength="6" placeholder="Confirm new password">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="primary-btn">Update Password</button>
+                </div>
+            </form>
+            <div id="reset-password-error" class="error-message" style="display: none;"></div>
+            <div id="reset-password-success" class="success-message" style="display: none;"></div>
         </div>
     </div>
 
@@ -308,29 +463,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="preferences-section">
-                                    <h4>
-                                        <i class="fas fa-shield-alt"></i>
-                                        Security
-                                    </h4>
-                                    <div class="preference-item">
-                                        <label for="profile-security-code">6-Digit Security Code</label>
-                                        <p class="preference-description">Set a 6-digit code for alternative authentication</p>
-                                        <div class="security-code-input-group">
-                                            <input type="text" id="profile-security-code" class="preference-input" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6 digits (e.g., 123456)">
-                                            <button id="update-security-code" class="preferences-btn secondary">
-                                                <i class="fas fa-save"></i>
-                                                Update Code
-                                            </button>
-                                        </div>
-                                        <div id="security-code-status" class="security-code-status">
-                                            <span id="security-code-indicator" class="status-indicator">
-                                                <i class="fas fa-times-circle" style="color: #dc3545;"></i>
-                                                No security code set
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
+
                             </div>
                             <div class="preferences-actions">
                                 <button id="save-preferences" class="preferences-btn primary">
@@ -349,32 +482,7 @@
         </div>
     </div>
 
-    <!-- Profile Setup Modal -->
-    <div id="profile-setup-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Complete Your Profile Setup</h2>
-                <span class="close" id="close-profile-setup-modal">&times;</span>
-            </div>
-            <form id="profile-setup-form">
-                <div class="form-group">
-                    <label for="security-code">Set a 6-Digit Security Code (Optional)</label>
-                    <input type="text" id="security-code" name="security-code" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6 digits (e.g., 123456)">
-                    <small class="form-help">This code will help you recover your account if you forget your password.</small>
-                </div>
-                <div class="warning-message" style="background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 10px; border-radius: 4px; margin: 10px 0;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Warning:</strong> If you don't set a security code, you may lose access to your account if you forget your password!
-                </div>
-                <div class="form-actions">
-                    <button type="button" id="skip-security-code" class="btn btn-secondary">Skip for Now</button>
-                    <button type="submit" class="btn btn-primary">Save Security Code</button>
-                </div>
-            </form>
-            <div id="profile-setup-error" class="error-message" style="display: none;"></div>
-            <div id="profile-setup-success" class="success-message" style="display: none;"></div>
-        </div>
-    </div>
+    <!-- Profile Setup Modal - Removed security code setup as password reset is now implemented -->
 
     <!-- Contact Us Floating Button -->
     <div id="contact-us-btn" class="contact-us-floating-btn">
@@ -428,7 +536,6 @@
                         <select id="contact-topic" name="topic" required>
                             <option value="">Select a topic...</option>
                             <option value="general inquiry">General Inquiry</option>
-                            <option value="forgot 6 digit passcode">Forgot 6 Digit Passcode</option>
                             <option value="business inquiry">Business Inquiry</option>
                             <option value="technical support">Technical Support</option>
                         </select>
@@ -455,6 +562,7 @@
     </div>
 
     <script src="config.js"></script>
+    <script src="auth.js"></script>
     <script src="theme-utils.js"></script>
     <script src="real-music-player.js"></script>
     <script src="persistent-music.js"></script>

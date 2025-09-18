@@ -228,7 +228,7 @@ class PersistentMusicManager {
         // Update music toggle buttons across the page
         const toggleButtons = [
             document.getElementById('music-toggle'),
-            document.getElementById('music-toggle-btn')
+            document.getElementById('floating-music-btn')
         ];
         
         toggleButtons.forEach(button => {

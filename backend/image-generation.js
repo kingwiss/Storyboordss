@@ -89,7 +89,10 @@ async function generateImageWithPollinations(prompt, model = 'flux') {
         const cleanedPrompt = prompt.replace(/[<>"']/g, '').trim();
         const encodedPrompt = encodeURIComponent(cleanedPrompt);
         
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&nologo=true&enhance=true&model=${model}`;
+        // Add random seed to ensure different images each time
+        const randomSeed = Math.floor(Math.random() * 1000000) + Date.now();
+        
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&nologo=true&enhance=true&model=${model}&seed=${randomSeed}`;
         
         const response = await axios({
             method: 'get',

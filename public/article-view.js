@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let authToken = localStorage.getItem('authToken');
     let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
     let currentArticle = null;
+    let loadingTimeout = null;
     
     // Voice selection variables
     let availableVoices = [];
@@ -90,11 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 localStorage.setItem('currentUser', JSON.stringify(userData));
                 updateAuthUI();
                 
-                // Check if user needs to set up security code (only once per session)
-                if (currentUser && !currentUser.hasSecurityCode && !sessionStorage.getItem('profileSetupPrompted')) {
-                    sessionStorage.setItem('profileSetupPrompted', 'true');
-                    showProfileSetupModal();
-                }
+                // Security code setup removed - password reset is now implemented
                 return true;
             } else if (response.status === 401) {
                 // Token is expired or invalid
@@ -177,6 +174,8 @@ document.addEventListener('DOMContentLoaded', function() {
         let articleId = urlParams.get('id');
         const autoplay = urlParams.get('autoplay') === 'true';
         
+        console.log('=== DEBUG: loadArticleFromURL called with ID:', articleId, 'autoplay:', autoplay);
+        
         // If autoplay is requested, load the latest article
         if (autoplay && !articleId) {
             if (authToken) {
@@ -191,25 +190,43 @@ document.addEventListener('DOMContentLoaded', function() {
         // If no ID in URL, try to get from localStorage (for refresh scenarios)
         if (!articleId) {
             articleId = localStorage.getItem('currentArticleId');
+            console.log('=== DEBUG: No ID in URL, using from localStorage:', articleId);
         }
         
         if (articleId) {
             // First try to load from sessionStorage for faster loading
             const storedData = sessionStorage.getItem('viewArticleData');
+            console.log('=== DEBUG: Stored data from sessionStorage:', storedData ? 'exists' : 'not found');
+            
             if (storedData) {
                 try {
                     const articleData = JSON.parse(storedData);
-                    // Verify this is the correct article
-                    if (articleData.id === articleId) {
+                    console.log('=== DEBUG: Parsed article data:', articleData);
+                    console.log('=== DEBUG: Article data structure:', JSON.stringify(articleData, null, 2));
+                    console.log('=== DEBUG: Comparing IDs:', articleData.id, articleId);
+                    
+                    // Verify this is the correct article - convert both to strings for comparison
+                    if (String(articleData.id) === String(articleId)) {
+                        console.log('=== DEBUG: Using cached article data');
                         displayArticle(articleData, autoplay);
+                        // Clear the sessionStorage AFTER displaying to prevent stale data on next navigation
+                        setTimeout(() => {
+                            sessionStorage.removeItem('viewArticleData');
+                        }, 1000);
                         // Still fetch fresh data in background if authenticated
                         if (authToken) {
                             loadArticleFromAPI(articleId, autoplay);
                         }
                         return;
+                    } else {
+                        console.log('=== DEBUG: Cached article ID mismatch, loading from API');
+                        // Clear mismatched data
+                        sessionStorage.removeItem('viewArticleData');
                     }
                 } catch (error) {
                     console.error('Error parsing stored article data:', error);
+                    // Clear invalid data
+                    sessionStorage.removeItem('viewArticleData');
                 }
             }
             
@@ -226,6 +243,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadLatestArticle(autoplay = false) {
         try {
+            // Show loading state and hide error states
+            loadingState.style.display = 'block';
+            articleNotFound.style.display = 'none';
+            articleContent.style.display = 'none';
+            
+            // Clear any existing timeout
+            if (loadingTimeout) {
+                clearTimeout(loadingTimeout);
+            }
+            
+            // Set a safety timeout to prevent infinite loading
+            loadingTimeout = setTimeout(() => {
+                console.error('Article loading timed out after 10 seconds');
+                loadingState.style.display = 'none';
+                articleNotFound.style.display = 'block';
+            }, 10000); // 10 second timeout
+            
             const response = await fetch(getApiUrl('/api/user/audiobooks/latest'), {
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
@@ -233,9 +267,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
+            // Always hide loading state when response is received
+            loadingState.style.display = 'none';
+            
+            // Clear the safety timeout
+            if (loadingTimeout) {
+                clearTimeout(loadingTimeout);
+                loadingTimeout = null;
+            }
+
             if (response.ok) {
-                const data = await response.json();
-                const articleData = data.article;
+                const responseData = await response.json();
+                console.log('Latest article response:', responseData);
+                
+                // Handle both direct article data and wrapped article data
+                const articleData = responseData.article || responseData;
+                
+                if (!articleData || typeof articleData !== 'object') {
+                    console.error('Invalid article data received:', responseData);
+                    showArticleNotFound();
+                    return;
+                }
+                
                 // Store article data for refresh scenarios
                 sessionStorage.setItem('viewArticleData', JSON.stringify(articleData));
                 localStorage.setItem('currentArticleId', articleData.id);
@@ -255,6 +308,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 showArticleNotFound();
             }
         } catch (error) {
+            // Always hide loading state on error
+            loadingState.style.display = 'none';
             console.error('Error loading latest article:', error);
             showArticleNotFound();
         }
@@ -264,16 +319,55 @@ document.addEventListener('DOMContentLoaded', function() {
         // Store article ID for potential retry after login
         localStorage.setItem('currentArticleId', articleId);
         
+        // Show loading state and hide error states
+        loadingState.style.display = 'block';
+        articleNotFound.style.display = 'none';
+        articleContent.style.display = 'none';
+        
+        // Clear any existing timeout
+        if (loadingTimeout) {
+            clearTimeout(loadingTimeout);
+        }
+        
+        // Set a safety timeout to prevent infinite loading
+        loadingTimeout = setTimeout(() => {
+            console.error('Article loading timed out after 10 seconds');
+            loadingState.style.display = 'none';
+            articleNotFound.style.display = 'block';
+        }, 10000); // 10 second timeout
+        
         try {
+            console.log('Loading article from API:', articleId);
             const response = await fetch(getApiUrl(`/api/user/audiobooks/${articleId}`), {
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
                     'Content-Type': 'application/json'
                 }
             });
+            
+            // Always hide loading state when response is received
+            loadingState.style.display = 'none';
+            
+            // Clear the safety timeout
+            if (loadingTimeout) {
+                clearTimeout(loadingTimeout);
+                loadingTimeout = null;
+            }
 
             if (response.ok) {
-                const articleData = await response.json();
+                const responseData = await response.json();
+                console.log('Article response received:', responseData);
+                
+                // Handle both direct article data and wrapped article data
+                const articleData = responseData.article || responseData;
+                
+                // Ensure article data is properly structured
+                if (!articleData || typeof articleData !== 'object') {
+                    console.error('Invalid article data received');
+                    showArticleNotFound();
+                    return;
+                }
+                
                 // Store article data for refresh scenarios
                 sessionStorage.setItem('viewArticleData', JSON.stringify(articleData));
                 displayArticle(articleData, autoplay);
@@ -289,50 +383,124 @@ document.addEventListener('DOMContentLoaded', function() {
                 showArticleNotFound();
             }
         } catch (error) {
+            // Always hide loading state on error
+            loadingState.style.display = 'none';
             console.error('Error loading article:', error);
             showArticleNotFound();
         }
     }
 
     function displayArticle(article, autoplay = false) {
-        currentArticle = article;
-        
-        // Hide loading and show content
-        loadingState.style.display = 'none';
-        articleNotFound.style.display = 'none';
-        articleContent.style.display = 'block';
-        
-        // Dispatch event to notify Return to Article button
-        window.dispatchEvent(new CustomEvent('articleViewed', {
-            detail: {
+        try {
+            console.log('=== DISPLAY ARTICLE DEBUG ===');
+            console.log('Article object:', article);
+            console.log('Article keys:', Object.keys(article || {}));
+            console.log('Title:', article?.title);
+            console.log('Summary:', article?.summary);
+            console.log('Full text length:', article?.full_text?.length || article?.content?.length || 0);
+            console.log('Key points:', article?.key_points || article?.keyPoints);
+            console.log('Image URLs:', article?.image_urls || article?.imageUrls);
+            
+            // Check if DOM elements exist
+            console.log('DOM elements check:');
+            console.log('articleTitle exists:', !!articleTitle);
+            console.log('articleSummary exists:', !!articleSummary);
+            console.log('articleFullText exists:', !!articleFullText);
+            console.log('keyPointsList exists:', !!keyPointsList);
+            console.log('keyPointsSection exists:', !!keyPointsSection);
+            
+            // Ensure article object exists
+            if (!article || typeof article !== 'object') {
+                console.error('Article object is invalid:', article);
+                loadingState.style.display = 'none';
+                articleNotFound.style.display = 'block';
+                return;
+            }
+            
+            // Normalize article data structure to handle different property naming conventions
+            const normalizedArticle = {
+                ...article,
                 id: article.id,
                 title: article.title || 'Untitled Article',
-                url: window.location.href
+                full_text: article.full_text || article.content || '',
+                summary: article.summary || '',
+                key_points: article.key_points || article.keyPoints || [],
+                image_urls: article.image_urls || article.imageUrls || [],
+                url: article.url || '',
+                created_at: article.created_at || article.createdAt
+            };
+            
+            // Replace the article with normalized version
+            article = normalizedArticle;
+            
+            currentArticle = article;
+            
+            // Hide loading and show content
+            loadingState.style.display = 'none';
+            articleNotFound.style.display = 'none';
+            articleContent.style.display = 'block';
+            
+            // Dispatch event to notify Return to Article button
+            window.dispatchEvent(new CustomEvent('articleViewed', {
+                detail: {
+                    id: article.id,
+                    title: article.title || 'Untitled Article',
+                    url: window.location.href
+                }
+            }));
+
+            // Populate article content
+            console.log('Setting article title...');
+            if (articleTitle) {
+                articleTitle.textContent = article.title || 'Untitled Article';
+                console.log('Title set successfully');
+            } else {
+                console.error('articleTitle element not found!');
             }
-        }));
+            
+            if (article.created_at || article.createdAt) {
+                const date = new Date(article.created_at || article.createdAt);
+                if (articleDate) {
+                    articleDate.textContent = date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                }
+            }
 
-        // Populate article content
-        articleTitle.textContent = article.title || 'Untitled Article';
-        
-        if (article.created_at || article.createdAt) {
-            const date = new Date(article.created_at || article.createdAt);
-            articleDate.textContent = date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
-        }
+            if (article.url) {
+                if (originalLink) {
+                    originalLink.href = article.url;
+                    originalLink.style.display = 'flex';
+                }
+            } else {
+                if (originalLink) {
+                    originalLink.style.display = 'none';
+                }
+            }
 
-        if (article.url) {
-            originalLink.href = article.url;
-            originalLink.style.display = 'flex';
-        } else {
-            originalLink.style.display = 'none';
-        }
-
-        // Display full text
-        const fullText = article.full_text || article.content || 'No content available';
-        articleFullText.innerHTML = formatArticleText(fullText);
+            // Display full text
+            console.log('Setting article full text...');
+            const fullText = article.full_text || article.content || '';
+            console.log('Full text to display:', fullText.substring(0, 100) + '...');
+            
+            if (articleFullText) {
+                try {
+                    if (!fullText || fullText.length === 0) {
+                        articleFullText.innerHTML = '<p>No content available</p>';
+                        console.log('Set "No content available" message');
+                    } else {
+                        articleFullText.innerHTML = formatArticleText(fullText);
+                        console.log('Article text formatted and set successfully');
+                    }
+                } catch (error) {
+                    console.error('Error formatting article text:', error);
+                    articleFullText.innerHTML = '<p>Error displaying article content</p>';
+                }
+            } else {
+                console.error('articleFullText element not found!');
+            }
         
         // Initialize text-to-speech with article content
         if (fullText && fullText !== 'No content available') {
@@ -355,16 +523,26 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Display summary
+        console.log('Setting article summary...');
         const summary = article.summary || 'No summary available';
-        articleSummary.innerHTML = `<p>${escapeHtml(summary)}</p>`;
+        if (articleSummary) {
+            articleSummary.innerHTML = `<p>${escapeHtml(summary)}</p>`;
+            console.log('Summary set successfully');
+        } else {
+            console.error('articleSummary element not found!');
+        }
 
         // Display images in carousel
         const imageUrls = article.image_urls || article.imageUrls || [];
-        console.log('Article data:', article);
+        console.log('Article data for images:', article);
         console.log('Image URLs from article:', imageUrls);
         
+        // Ensure imageUrls is an array
+        const imageUrlsArray = Array.isArray(imageUrls) ? imageUrls : 
+                              (typeof imageUrls === 'string' ? [imageUrls] : []);
+        
         // Validate image URLs
-        const validImageUrls = imageUrls.filter(url => {
+        const validImageUrls = imageUrlsArray.filter(url => {
             if (!url) {
                 console.warn('Found null or undefined image URL');
                 return false;
@@ -387,18 +565,58 @@ document.addEventListener('DOMContentLoaded', function() {
         articleImagesSection.style.display = 'none';
 
         // Display key points
+        console.log('Setting key points...');
         const keyPoints = article.key_points || article.keyPoints || [];
-        if (keyPoints.length > 0) {
-            keyPointsList.innerHTML = keyPoints.map(point => 
-                `<li>${escapeHtml(point)}</li>`
-            ).join('');
-            keyPointsSection.style.display = 'block';
+        const keyPointsArray = Array.isArray(keyPoints) ? keyPoints : 
+                              (typeof keyPoints === 'string' ? [keyPoints] : []);
+                              
+        console.log('Key points array:', keyPointsArray);
+        
+        if (keyPointsArray.length > 0) {
+            if (keyPointsList && keyPointsSection) {
+                keyPointsList.innerHTML = keyPointsArray.map(point => 
+                    `<li>${escapeHtml(point)}</li>`
+                ).join('');
+                keyPointsSection.style.display = 'block';
+                console.log('Key points set successfully, section shown');
+            } else {
+                console.error('keyPointsList or keyPointsSection element not found!');
+            }
         } else {
-            keyPointsSection.style.display = 'none';
+            if (keyPointsSection) {
+                keyPointsSection.style.display = 'none';
+                console.log('No key points, section hidden');
+            }
         }
+        
+        console.log('=== DISPLAY ARTICLE COMPLETE ===');
+        
+    } catch (error) {
+        console.error('Error in displayArticle:', error);
+        console.error('Stack trace:', error.stack);
+        loadingState.style.display = 'none';
+        articleNotFound.style.display = 'block';
     }
+}
 
     function formatArticleText(text) {
+        if (!text || text === 'No content available') {
+            return '<p>No content available</p>';
+        }
+        
+        // Handle case where text might be undefined or null
+        text = text || '';
+        
+        // Ensure text is a string
+        if (typeof text !== 'string') {
+            try {
+                text = text.toString();
+            } catch (e) {
+                console.error('Could not convert article text to string:', e);
+                return '<p>Error displaying content</p>';
+            }
+        }
+        
         // Split text into paragraphs and format
         const paragraphs = text.split('\n').filter(p => p.trim().length > 0);
         return paragraphs.map(paragraph => 
@@ -415,6 +633,11 @@ document.addEventListener('DOMContentLoaded', function() {
             img.src = url;
         });
     }
+    
+    // Auto-slideshow variables
+    let slideshowInterval = null;
+    let isAutoSlideshowActive = false;
+    const SLIDESHOW_INTERVAL = 4000; // 4 seconds between slides
     
     async function displayImageCarousel(imageUrls) {
         if (!imageUrls || imageUrls.length === 0) {
@@ -468,6 +691,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update carousel display
         updateCarouselPosition();
         
+        // Start auto-slideshow if there are multiple images
+        if (totalSlides > 1) {
+            startAutoSlideshow();
+        }
+        
         // Remove loading indicator
         imageCarouselContainer.classList.remove('loading');
         
@@ -479,6 +707,41 @@ document.addEventListener('DOMContentLoaded', function() {
             errorDiv.style.display = 'none';
             errorDiv.innerHTML = '<p>Some images failed to load. Please try refreshing the page.</p>';
             imageCarouselContainer.appendChild(errorDiv);
+        }
+    }
+    
+    function startAutoSlideshow() {
+        if (isAutoSlideshowActive || totalSlides <= 1) return;
+        
+        console.log('Starting auto-slideshow with', totalSlides, 'images');
+        isAutoSlideshowActive = true;
+        
+        slideshowInterval = setInterval(() => {
+            // Move to next slide
+            currentSlide = currentSlide < totalSlides - 1 ? currentSlide + 1 : 0;
+            updateCarouselPosition();
+        }, SLIDESHOW_INTERVAL);
+    }
+    
+    function stopAutoSlideshow() {
+        if (!isAutoSlideshowActive) return;
+        
+        console.log('Stopping auto-slideshow');
+        isAutoSlideshowActive = false;
+        
+        if (slideshowInterval) {
+            clearInterval(slideshowInterval);
+            slideshowInterval = null;
+        }
+    }
+    
+    function restartAutoSlideshow() {
+        stopAutoSlideshow();
+        if (totalSlides > 1) {
+            // Restart after a short delay
+            setTimeout(() => {
+                startAutoSlideshow();
+            }, 2000); // 2 second delay before restarting
         }
     }
     
@@ -495,22 +758,28 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Previous button
         prevBtn.addEventListener('click', () => {
+            stopAutoSlideshow(); // Pause auto-slideshow on manual interaction
             currentSlide = currentSlide > 0 ? currentSlide - 1 : totalSlides - 1;
             updateCarouselPosition();
+            restartAutoSlideshow(); // Restart after delay
         });
         
         // Next button
         nextBtn.addEventListener('click', () => {
+            stopAutoSlideshow(); // Pause auto-slideshow on manual interaction
             currentSlide = currentSlide < totalSlides - 1 ? currentSlide + 1 : 0;
             updateCarouselPosition();
+            restartAutoSlideshow(); // Restart after delay
         });
         
         // Indicator buttons
         const indicators = carouselIndicators.querySelectorAll('.carousel-indicator');
         indicators.forEach((indicator, index) => {
             indicator.addEventListener('click', () => {
+                stopAutoSlideshow(); // Pause auto-slideshow on manual interaction
                 currentSlide = index;
                 updateCarouselPosition();
+                restartAutoSlideshow(); // Restart after delay
             });
         });
         
@@ -671,6 +940,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (shouldSwipe) {
                 event.preventDefault();
+                stopAutoSlideshow(); // Pause auto-slideshow on swipe interaction
                 
                 if (deltaX > 0) {
                     // Swipe right - go to previous slide
@@ -684,6 +954,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (navigator.vibrate) {
                     navigator.vibrate(10);
                 }
+                
+                restartAutoSlideshow(); // Restart after delay
             }
             
             // Always update position to ensure proper alignment
@@ -712,6 +984,22 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.PointerEvent) {
             carousel.style.touchAction = 'pan-y pinch-zoom';
         }
+        
+        // Pause auto-slideshow on hover (desktop)
+        carousel.addEventListener('mouseenter', () => {
+            if (isAutoSlideshowActive) {
+                stopAutoSlideshow();
+                carousel.setAttribute('data-paused-by-hover', 'true');
+            }
+        });
+        
+        // Resume auto-slideshow when mouse leaves (desktop)
+        carousel.addEventListener('mouseleave', () => {
+            if (carousel.getAttribute('data-paused-by-hover') === 'true') {
+                carousel.removeAttribute('data-paused-by-hover');
+                startAutoSlideshow();
+            }
+        });
     }
 
     function showArticleNotFound() {
@@ -1365,7 +1653,23 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             setTimeout(() => {
-                speechSynthesis.resume();
+                // Check if we have a properly prepared utterance
+                if (!ttsState.currentUtterance || !ttsState.currentUtterance.text) {
+                    console.log('No valid utterance found for resume, creating new one');
+                    // Create a new utterance if needed
+                    prepareUtteranceForResume();
+                    // Start speaking instead of resuming
+                    speechSynthesis.speak(ttsState.currentUtterance);
+                } else {
+                    // Apply current speech rate before resuming
+                    if (ttsState.speechRate) {
+                        ttsState.currentUtterance.rate = ttsState.speechRate;
+                    }
+                    
+                    // Resume the existing utterance
+                    speechSynthesis.resume();
+                }
+                
                 ttsState.isPlaying = true;
                 ttsState.isPaused = false;
                 if (playPauseBtn) {
@@ -1466,11 +1770,49 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleSpeedChange() {
         if (ttsState.currentUtterance) {
             const wasPlaying = ttsState.isPlaying;
+            const wasPaused = ttsState.isPaused;
+            
+            // Update the rate in ttsState to maintain it between play/pause
+            const speedControl = document.getElementById('speed-control');
+            ttsState.speechRate = speedControl ? parseFloat(speedControl.value) : 1;
+            
+            // Cancel current utterance
             speechSynthesis.cancel();
+            
             if (wasPlaying) {
+                // If it was playing, restart with new speed
                 setTimeout(() => speakText(ttsState.fullArticleText, ttsState.currentWordIndex), 100);
+            } else if (wasPaused) {
+                // If it was paused, prepare a new utterance but don't play it yet
+                prepareUtteranceForResume();
+                
+                // Update UI to ensure play button is enabled and shows correct state
+                const playPauseBtn = document.getElementById('play-pause-btn');
+                if (playPauseBtn) {
+                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i><span>Play</span>';
+                    playPauseBtn.disabled = false;
+                }
             }
         }
+    }
+    
+    function prepareUtteranceForResume() {
+        // Create a new utterance with the text from current position
+        const wordsToSpeak = ttsState.fullArticleText.split(/\s+/).slice(ttsState.currentWordIndex).join(' ');
+        ttsState.currentUtterance = new SpeechSynthesisUtterance(wordsToSpeak);
+        
+        // Apply the current speech rate
+        ttsState.currentUtterance.rate = ttsState.speechRate || 1;
+        
+        // Set up the word boundary event to track progress
+        ttsState.currentUtterance.onboundary = handleWordBoundary;
+        
+        // Set up the end event
+        ttsState.currentUtterance.onend = handleSpeechEnd;
+        
+        // Make sure we maintain paused state
+        ttsState.isPlaying = false;
+        ttsState.isPaused = true;
     }
     
     function handleProgressClick(e) {
@@ -1765,9 +2107,30 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function updateProgress() {
         const progressBar = document.getElementById('progress-bar');
+        const timeDisplay = document.getElementById('time-display');
+        
         if (progressBar && ttsState.totalWords > 0) {
             const progress = (ttsState.currentWordIndex / ttsState.totalWords) * 100;
             progressBar.value = progress;
+            
+            // Update time display with estimated time remaining
+            if (timeDisplay) {
+                const wordsPerMinute = 150; // Average reading speed
+                const totalMinutes = ttsState.totalWords / wordsPerMinute;
+                const totalSeconds = Math.round(totalMinutes * 60);
+                
+                const remainingWords = ttsState.totalWords - ttsState.currentWordIndex;
+                const remainingMinutes = remainingWords / wordsPerMinute;
+                const remainingSeconds = Math.round(remainingMinutes * 60);
+                
+                const formatTime = (seconds) => {
+                    const mins = Math.floor(seconds / 60);
+                    const secs = Math.floor(seconds % 60);
+                    return `${mins}:${secs.toString().padStart(2, '0')}`;
+                };
+                
+                timeDisplay.textContent = `${formatTime(remainingSeconds)} / ${formatTime(totalSeconds)}`;
+            }
         }
     }
     
@@ -1881,6 +2244,15 @@ document.addEventListener('DOMContentLoaded', function() {
             articleContent.style.display = 'none';
             articleNotFound.style.display = 'none';
             
+            // Safety timeout to prevent infinite loading
+            setTimeout(() => {
+                if (loadingState.style.display === 'flex') {
+                    console.warn('Loading timeout reached, showing error');
+                    loadingState.style.display = 'none';
+                    articleNotFound.style.display = 'block';
+                }
+            }, 10000); // 10 second timeout
+            
             // Clear any cached data to force fresh load
             sessionStorage.removeItem('viewArticleData');
             
@@ -1968,7 +2340,7 @@ document.addEventListener('DOMContentLoaded', function() {
             submitButton.disabled = true;
             
             try {
-                const response = await fetch(getApiUrl('/api/auth/login'), {
+                const response = await fetch(getApiUrl('/api/login'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -1988,10 +2360,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (authModal) authModal.style.display = 'none';
                     loginForm.reset();
                     
-                    // Show profile setup modal if user doesn't have a security code
-                    if (!currentUser.hasSecurityCode) {
-                        showProfileSetupModal();
-                    }
+                    // Security code setup removed - password reset is now implemented
                     
                     // Reload article if we have an ID in URL or stored
                     const urlParams = new URLSearchParams(window.location.search);
@@ -2053,27 +2422,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Password uniqueness check - properly implemented
     async function checkPasswordUniqueness(password) {
-        if (!password || password.length < 8) return;
-        
+        const uniqueReq = document.getElementById('unique-req');
+        if (!uniqueReq || !password || password.length < 6) {
+            if (uniqueReq) {
+                uniqueReq.className = 'requirement invalid';
+            }
+            return false;
+        }
+
         try {
-            const response = await fetch(getApiUrl('/api/auth/check-password'), {
+            // Check password uniqueness against database
+            const response = await fetch(getApiUrl('/api/auth/check-password-uniqueness'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ password })
             });
-            
+
             const data = await response.json();
-            const uniqueReq = document.getElementById('unique-req');
-            if (uniqueReq) {
-                uniqueReq.className = data.unique ? 'requirement valid' : 'requirement invalid';
+            
+            if (response.ok && data.success) {
+                const isUnique = data.isUnique;
+                uniqueReq.className = isUnique ? 'requirement valid' : 'requirement invalid';
+                return isUnique;
+            } else {
+                // If check fails, assume unique to not block users
+                uniqueReq.className = 'requirement valid';
+                return true;
             }
-            return data.unique;
         } catch (error) {
             console.error('Password uniqueness check failed:', error);
-            return true; // Assume unique if check fails
+            // If check fails, assume unique to not block users
+            uniqueReq.className = 'requirement valid';
+            return true;
         }
     }
     
@@ -2082,10 +2466,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const signupConfirmPassword = document.getElementById('signup-confirm-password');
     
     if (signupPassword) {
-        signupPassword.addEventListener('input', (e) => {
+        signupPassword.addEventListener('input', async (e) => {
             const password = e.target.value;
             updatePasswordRequirements(password);
-            checkPasswordUniqueness(password);
+            await checkPasswordUniqueness(password);
             
             if (signupConfirmPassword && signupConfirmPassword.value) {
                 updatePasswordMatch(password, signupConfirmPassword.value);
@@ -2124,7 +2508,7 @@ document.addEventListener('DOMContentLoaded', function() {
             submitButton.disabled = true;
             
             try {
-                const response = await fetch(getApiUrl('/api/auth/register'), {
+                const response = await fetch(getApiUrl('/api/register'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -2232,7 +2616,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(async () => {
         console.log('=== DEBUG: article-view.js: Initializing music UI ===');
 
-        const musicToggleBtn = document.getElementById('music-toggle-btn');
+        const musicToggleBtn = document.getElementById('floating-music-btn');
         if (!musicToggleBtn) {
             console.log('=== DEBUG: article-view.js: Music toggle button not found ===');
             return;
@@ -2271,7 +2655,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1200); // Use a slightly longer delay
     
     // Initialize music toggle button with proper debouncing and state management
-    const musicToggleBtn = document.getElementById('music-toggle-btn');
+    const musicToggleBtn = document.getElementById('floating-music-btn');
     if (musicToggleBtn) {
         let isToggling = false; // Prevent multiple rapid clicks
         
@@ -2417,83 +2801,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Profile Setup Modal Functions
-function showProfileSetupModal() {
-    console.log('Showing profile setup modal...');
-    const profileSetupModal = document.getElementById('profile-setup-modal');
-    const profileSetupForm = document.getElementById('profile-setup-form');
-    const skipButton = document.getElementById('skip-security-code');
-    const closeButton = document.getElementById('close-profile-setup-modal');
-    const errorDiv = document.getElementById('profile-setup-error');
-    const successDiv = document.getElementById('profile-setup-success');
-    
-    if (profileSetupModal) {
-        profileSetupModal.style.display = 'block';
-        
-        // Handle form submission
-        if (profileSetupForm) {
-            profileSetupForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const securityCode = document.getElementById('security-code').value.trim();
-                
-                if (securityCode && securityCode.length === 6 && /^[0-9]{6}$/.test(securityCode)) {
-                    try {
-                        const response = await fetch(getApiUrl('/api/auth/set-security-code'), {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                            },
-                            body: JSON.stringify({ securityCode })
-                        });
-                        
-                        if (response.ok) {
-                            successDiv.textContent = 'Security code saved successfully!';
-                            successDiv.style.display = 'block';
-                            errorDiv.style.display = 'none';
-                            // Clear the session flag since user now has security code
-                            sessionStorage.removeItem('profileSetupPrompted');
-                            setTimeout(() => {
-                                profileSetupModal.style.display = 'none';
-                            }, 2000);
-                        } else {
-                            const data = await response.json();
-                            errorDiv.textContent = data.error || 'Failed to save security code';
-                            errorDiv.style.display = 'block';
-                            successDiv.style.display = 'none';
-                        }
-                    } catch (error) {
-                        console.error('Error saving security code:', error);
-                        errorDiv.textContent = 'Network error. Please try again.';
-                        errorDiv.style.display = 'block';
-                        successDiv.style.display = 'none';
-                    }
-                } else {
-                    errorDiv.textContent = 'Please enter a valid 6-digit code (numbers only)';
-                    errorDiv.style.display = 'block';
-                    successDiv.style.display = 'none';
-                }
-            });
-        }
-        
-        // Handle skip button
-        if (skipButton) {
-            skipButton.addEventListener('click', () => {
-                profileSetupModal.style.display = 'none';
-            });
-        }
-        
-        // Handle close button
-        if (closeButton) {
-            closeButton.addEventListener('click', () => {
-                profileSetupModal.style.display = 'none';
-            });
-        }
-        
-        // Close modal when clicking outside
-        profileSetupModal.addEventListener('click', (event) => {
-            if (event.target === profileSetupModal) {
-                profileSetupModal.style.display = 'none';
-            }
-        });
-    }
-}
+// Profile Setup Modal Functions - Removed as security code feature is no longer needed

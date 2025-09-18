@@ -77,6 +77,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     async function checkAuthStatus() {
+        // Use the robust auth system if available, otherwise fallback to local check
+        if (window.simpleAuth) {
+            if (window.simpleAuth.isAuthenticated()) {
+                currentUser = window.simpleAuth.getUser();
+                authToken = window.simpleAuth.getToken();
+                updateAuthUI();
+                return;
+            }
+        }
+        
+        // Fallback to original logic for backward compatibility
         if (authToken && isBackendAvailable()) {
             try {
                 const response = await fetch(getApiUrl('/api/auth/me'), {
@@ -90,12 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await response.json();
                     currentUser = data.user;
                     updateAuthUI();
-                    
-                    // Check if user needs to set up security code (only once per session)
-                    if (currentUser && !currentUser.hasSecurityCode && !sessionStorage.getItem('profileSetupPrompted')) {
-                        sessionStorage.setItem('profileSetupPrompted', 'true');
-                        showProfileSetupModal();
-                    }
                 } else {
                     // Token is invalid, remove it
                     localStorage.removeItem('authToken');
@@ -110,6 +115,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentUser = null;
                 updateAuthUI();
             }
+        } else if (authToken) {
+            // If we have a token but backend is not available, assume user is logged in
+            // This allows the logout button to show even when backend is down
+            currentUser = { username: 'User' }; // Placeholder user data
+            updateAuthUI();
         } else {
             updateAuthUI();
         }
@@ -158,14 +168,36 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Signup elements missing:', { signupBtn, signupModal, signupError });
     }
     
-    // Profile functionality removed - will be rebuilt from scratch
+    // Profile button functionality
+    const profileBtn = document.getElementById('profile-btn');
+    const profileModal = document.getElementById('profile-modal');
+    
+    if (profileBtn && profileModal) {
+        profileBtn.addEventListener('click', () => {
+            profileModal.style.display = 'block';
+            // If these functions exist, call them
+            if (typeof populateProfileDataImmediately === 'function') {
+                populateProfileDataImmediately();
+            }
+            if (typeof loadUserPreferences === 'function') {
+                loadUserPreferences();
+            }
+            if (typeof populateVoiceSelection === 'function') {
+                populateVoiceSelection();
+            }
+            // Start theme preview mode if available
+            if (window.themeManager && window.themeManager.startPreviewMode) {
+                window.themeManager.startPreviewMode();
+            }
+        });
+    }
     
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('authToken');
-            sessionStorage.removeItem('profileSetupPrompted');
-            authToken = null;
+            window.simpleAuth.logout();
+            // Clear local authentication state
             currentUser = null;
+            authToken = null;
             updateAuthUI();
         });
     }
@@ -246,55 +278,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Initialize RobustAuth when available
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.RobustAuth) {
+            window.auth = new RobustAuth();
+        } else {
+            console.error('RobustAuth not available');
+        }
+    });
+    
     // Form submissions (with null checks)
     if (loginForm && loginError) {
         loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         hideError(loginError);
         
-        const email = document.getElementById('login-email').value;
+        const username = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
         
-        try {
-            if (!isBackendAvailable()) {
-                showError(loginError, showBackendMessage());
-                return;
-            }
-            
-            const response = await fetch(getApiUrl('/api/auth/login'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify({ email, password })
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok) {
-                authToken = data.token;
-                currentUser = data.user;
-                localStorage.setItem('authToken', authToken);
-                updateAuthUI();
-                closeModal(loginModal);
-                loginForm.reset();
-                
-                // Show profile setup modal if user doesn't have a security code
-                if (!currentUser.hasSecurityCode) {
-                    showProfileSetupModal();
-                }
-            } else {
-                showError(loginError, data.error || 'Login failed');
-            }
-        } catch (error) {
-            console.error('Login error details:', {
-                message: error.message,
-                stack: error.stack,
-                name: error.name
-            });
-            showError(loginError, `Network error: ${error.message}. Please check console for details.`);
-        }
+        const success = await window.simpleAuth.login(username, password);
+         if (success) {
+             closeModal(loginModal);
+             loginForm.reset();
+             // Update the local currentUser variable to sync with auth.js
+             currentUser = window.simpleAuth.getUser();
+             authToken = window.simpleAuth.getToken();
+             updateAuthUI();
+         }
         });
     }
     
@@ -338,27 +348,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // Password uniqueness check - properly implemented
     async function checkPasswordUniqueness(password) {
-        if (!password || password.length < 8) return;
-        
+        const uniqueReq = document.getElementById('unique-req');
+        if (!uniqueReq || !password || password.length < 6) {
+            if (uniqueReq) {
+                uniqueReq.className = 'requirement invalid';
+            }
+            return false;
+        }
+
         try {
-            const response = await fetch(getApiUrl('/api/auth/check-password'), {
+            // Check password uniqueness against database
+            const response = await fetch(getApiUrl('/api/auth/check-password-uniqueness'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ password })
             });
-            
+
             const data = await response.json();
-            const uniqueReq = document.getElementById('unique-req');
-            if (uniqueReq) {
-                uniqueReq.className = data.unique ? 'requirement valid' : 'requirement invalid';
+            
+            if (response.ok && data.success) {
+                const isUnique = data.isUnique;
+                uniqueReq.className = isUnique ? 'requirement valid' : 'requirement invalid';
+                return isUnique;
+            } else {
+                // If check fails, assume unique to not block users
+                uniqueReq.className = 'requirement valid';
+                return true;
             }
-            return data.unique;
         } catch (error) {
             console.error('Password uniqueness check failed:', error);
-            return true; // Assume unique if check fails
+            // If check fails, assume unique to not block users
+            uniqueReq.className = 'requirement valid';
+            return true;
         }
     }
     
@@ -367,10 +392,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const signupConfirmPassword = document.getElementById('signup-confirm-password');
     
     if (signupPassword) {
-        signupPassword.addEventListener('input', (e) => {
+        signupPassword.addEventListener('input', async (e) => {
             const password = e.target.value;
             updatePasswordRequirements(password);
-            checkPasswordUniqueness(password);
+            await checkPasswordUniqueness(password);
             
             if (signupConfirmPassword && signupConfirmPassword.value) {
                 updatePasswordMatch(password, signupConfirmPassword.value);
@@ -388,57 +413,24 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (signupForm && signupError) {
         signupForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        hideError(signupError);
-        
-        const username = document.getElementById('signup-username').value;
-        const email = document.getElementById('signup-email').value;
-        const password = document.getElementById('signup-password').value;
-        const confirmPassword = document.getElementById('signup-confirm-password').value;
-        
-        if (password !== confirmPassword) {
-            showError(signupError, 'Passwords do not match');
-            return;
-        }
-        
-        try {
-            if (!isBackendAvailable()) {
-                showError(signupError, showBackendMessage());
+            e.preventDefault();
+            hideError(signupError);
+            
+            const username = document.getElementById('signup-username').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const confirmPassword = document.getElementById('signup-confirm-password').value;
+            
+            if (password !== confirmPassword) {
+                showError(signupError, 'Passwords do not match');
                 return;
             }
             
-            const response = await fetch(getApiUrl('/api/auth/register'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify({ username, email, password })
-             });
-            
-            const data = await response.json();
-            
-            if (response.ok) {
-                authToken = data.token;
-                currentUser = data.user;
-                localStorage.setItem('authToken', authToken);
-                updateAuthUI();
+            const success = await window.auth.signup(username, email, password);
+            if (success) {
                 closeModal(signupModal);
                 signupForm.reset();
-                
-                // Show profile setup popup for security code
-                showProfileSetupModal();
-            } else {
-                showError(signupError, data.error || 'Registration failed');
             }
-        } catch (error) {
-            console.error('Signup error details:', {
-                message: error.message,
-                stack: error.stack,
-                name: error.name
-            });
-            showError(signupError, `Network error: ${error.message}. Please check console for details.`);
-        }
         });
     }
 
@@ -450,39 +442,32 @@ document.addEventListener('DOMContentLoaded', () => {
             hideError(forgotPasswordSuccess);
             
             const email = document.getElementById('forgot-email').value;
-            const securityCode = document.getElementById('forgot-security-code').value;
-            
-            // Validate security code format
-            if (!securityCode || securityCode.length !== 6 || !/^[0-9]{6}$/.test(securityCode)) {
-                showError(forgotPasswordError, 'Please enter a valid 6-digit security code (numbers only)');
-                return;
-            }
             
             try {
-                const response = await fetch(getApiUrl('/api/auth/verify-security-code'), {
+                const response = await fetch(getApiUrl('/api/auth/forgot-password'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ email, securityCode })
+                    body: JSON.stringify({ email })
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok) {
-                    // Store the reset token for the password reset form
-                    localStorage.setItem('resetToken', data.resetToken);
-                    
-                    // Close forgot password modal and open reset password modal
-                    closeModal(forgotPasswordModal);
-                    openModal(resetPasswordModal);
-                    
+                    showError(forgotPasswordSuccess, 'Password reset link sent to your email!');
                     forgotPasswordForm.reset();
+                    
+                    // Close modal after showing success message
+                    setTimeout(() => {
+                        closeModal(forgotPasswordModal);
+                        hideError(forgotPasswordSuccess);
+                    }, 3000);
                 } else {
-                    showError(forgotPasswordError, data.message || 'Invalid email or security code');
+                    showError(forgotPasswordError, data.message || 'Failed to send reset email');
                 }
             } catch (error) {
-                console.error('Security code verification error:', error);
+                console.error('Password reset error:', error);
                 showError(forgotPasswordError, 'Network error. Please try again.');
             }
         });
@@ -538,91 +523,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Profile Setup Modal Functions
-function showProfileSetupModal() {
-    console.log('Showing profile setup modal...');
-    const profileSetupModal = document.getElementById('profile-setup-modal');
-    const profileSetupForm = document.getElementById('profile-setup-form');
-    const skipButton = document.getElementById('skip-security-code');
-    const closeButton = document.getElementById('close-profile-setup-modal');
-    const errorDiv = document.getElementById('profile-setup-error');
-    const successDiv = document.getElementById('profile-setup-success');
-    
-    if (profileSetupModal) {
-        profileSetupModal.style.display = 'block';
-        
-        // Handle form submission
-        if (profileSetupForm) {
-            profileSetupForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const securityCode = document.getElementById('security-code').value.trim();
-                
-                if (securityCode && securityCode.length === 6 && /^[0-9]{6}$/.test(securityCode)) {
-                    try {
-                        const response = await fetch('/api/auth/set-security-code', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${localStorage.getItem('token')}`
-                            },
-                            body: JSON.stringify({ securityCode })
-                        });
-                        
-                        if (response.ok) {
-                            successDiv.textContent = 'Security code saved successfully!';
-                            successDiv.style.display = 'block';
-                            errorDiv.style.display = 'none';
-                            // Clear the session flag since user now has security code
-                            sessionStorage.removeItem('profileSetupPrompted');
-                            setTimeout(() => {
-                                profileSetupModal.style.display = 'none';
-                            }, 2000);
-                        } else {
-                            const data = await response.json();
-                            errorDiv.textContent = data.message || 'Failed to save security code';
-                            errorDiv.style.display = 'block';
-                            successDiv.style.display = 'none';
-                        }
-                    } catch (error) {
-                        console.error('Error saving security code:', error);
-                        errorDiv.textContent = 'Network error. Please try again.';
-                        errorDiv.style.display = 'block';
-                        successDiv.style.display = 'none';
-                    }
-                } else {
-                    errorDiv.textContent = 'Please enter a valid 6-digit code (numbers only)';
-                    errorDiv.style.display = 'block';
-                    successDiv.style.display = 'none';
-                }
-            });
-        }
-        
-        // Handle skip button
-        if (skipButton) {
-            skipButton.addEventListener('click', () => {
-                profileSetupModal.style.display = 'none';
-            });
-        }
-        
-        // Handle close button
-        if (closeButton) {
-            closeButton.addEventListener('click', () => {
-                profileSetupModal.style.display = 'none';
-            });
-        }
-        
-        // Close modal when clicking outside
-        profileSetupModal.addEventListener('click', (event) => {
-            if (event.target === profileSetupModal) {
-                profileSetupModal.style.display = 'none';
-            }
-        });
-    }
-}
-
     // Profile Modal Functions
 function initializeProfileModal() {
-    const profileBtn = document.getElementById('profile-btn');
+    const profileBtn = document.getElementById('profile-nav-btn');
     const profileModal = document.getElementById('profile-modal');
     const closeProfileModal = document.getElementById('close-profile-modal');
     const profileNavTabs = document.querySelectorAll('.profile-nav-tab');
@@ -1222,7 +1125,6 @@ function loadArticleIntoViewer(audiobook) {
 function initializePreferences() {
     const saveBtn = document.getElementById('save-preferences');
     const resetBtn = document.getElementById('reset-preferences');
-    const updateSecurityCodeBtn = document.getElementById('update-security-code');
     
     if (saveBtn) {
         saveBtn.addEventListener('click', saveUserPreferences);
@@ -1230,10 +1132,6 @@ function initializePreferences() {
     
     if (resetBtn) {
         resetBtn.addEventListener('click', resetUserPreferences);
-    }
-    
-    if (updateSecurityCodeBtn) {
-        updateSecurityCodeBtn.addEventListener('click', updateSecurityCode);
     }
 
     // Initialize voice selection when voices are ready
@@ -1317,8 +1215,8 @@ function saveUserPreferences() {
         speech_voice: speechVoiceSelect ? speechVoiceSelect.value : 'default'
     };
 
-    fetch('/api/user/preferences', {
-        method: 'PUT',
+    fetch(getApiUrl('/api/user/preferences'), {
+        method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -1598,61 +1496,6 @@ function resetUserPreferences() {
     showNotification('Preferences reset to default', 'info');
 }
 
-// Update security code
-async function updateSecurityCode() {
-    const securityCodeInput = document.getElementById('profile-security-code');
-    const statusIndicator = document.getElementById('security-code-indicator');
-    
-    if (!securityCodeInput) {
-        console.error('Security code input not found');
-        return;
-    }
-    
-    const securityCode = securityCodeInput.value.trim();
-    
-    // Validate security code format
-    if (!securityCode || securityCode.length !== 6 || !/^[0-9]{6}$/.test(securityCode)) {
-        showNotification('Please enter a valid 6-digit security code (numbers only)', 'error');
-        return;
-    }
-    
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-        showNotification('Please log in to update your security code', 'error');
-        return;
-    }
-    
-    try {
-        const response = await fetch(getApiUrl('/api/auth/set-security-code'), {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ securityCode })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            showNotification('Security code updated successfully!', 'success');
-            securityCodeInput.value = '';
-            
-            // Update status indicator
-            if (statusIndicator) {
-                statusIndicator.innerHTML = '<i class="fas fa-check-circle" style="color: #28a745;"></i> Security code set';
-            }
-        } else {
-            showNotification(data.error || 'Failed to update security code', 'error');
-        }
-    } catch (error) {
-        console.error('Error updating security code:', error);
-        showNotification('Network error. Please try again.', 'error');
-    }
-}
-
-
-
 // Show profile error
 function showProfileError(message) {
     const elements = {
@@ -1881,7 +1724,8 @@ function escapeHtml(text) {
         }
 
         // Check if user is logged in before generating audiobook
-        if (!currentUser) {
+        // Use the robust auth system to check authentication status
+        if (!window.simpleAuth || !window.simpleAuth.isAuthenticated()) {
             hideError(loginError);
             openModal(loginModal);
             return;
@@ -1919,9 +1763,10 @@ function escapeHtml(text) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                    'X-Session-ID': sessionId
                 },
-                body: JSON.stringify({ url, sessionId })
+                body: JSON.stringify({ url })
             });
 
             const data = await response.json();
@@ -1973,7 +1818,7 @@ function escapeHtml(text) {
                     summary: data.summary,
                     keyPoints: data.keyPoints,
                     imageUrls: data.imageUrls,
-                    url: articleUrl
+                    url: url
                 });
                 
                 // Close SSE connection
@@ -2204,7 +2049,7 @@ function escapeHtml(text) {
     setTimeout(() => {
         console.log('=== DEBUG: Initializing music UI on home page ===');
         
-        const musicToggleBtn = document.getElementById('music-toggle-btn');
+        const musicToggleBtn = document.getElementById('floating-music-btn');
         if (musicToggleBtn && window.musicPlayer) {
             // Update button state based on current music status
             if (window.musicPlayer.isCurrentlyPlaying) {
@@ -2218,7 +2063,7 @@ function escapeHtml(text) {
     }, 500); // Small delay to ensure persistent music manager is initialized
     
     // Initialize music toggle button
-    const musicToggleBtn = document.getElementById('music-toggle-btn');
+    const musicToggleBtn = document.getElementById('floating-music-btn');
     if (musicToggleBtn) {
         // Update button state based on current music status
         if (window.musicPlayer && window.musicPlayer.isCurrentlyPlaying) {
@@ -2264,7 +2109,6 @@ function escapeHtml(text) {
     };
     
     console.log('Test function added. Call testArticleLoading() in console to test.');
-});
 
 // Profile functionality removed - will be rebuilt from scratch
 
@@ -2772,3 +2616,5 @@ if (window.location.pathname.includes('my-articles.html')) {
         initializeMyArticlesPage();
     });
 }
+
+});

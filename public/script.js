@@ -1204,17 +1204,36 @@ function saveUserPreferences() {
     const speechRateSelect = document.getElementById('speech-rate-select');
     const speechVoiceSelect = document.getElementById('speech-voice-select');
     
-    if (!token) {
-        console.error('No token found');
-        return;
-    }
-
+    // Always save preferences locally first
     const preferences = {
         theme: themeSelect ? themeSelect.value : 'light',
         speech_rate: speechRateSelect ? parseFloat(speechRateSelect.value) : 1.0,
         speech_voice: speechVoiceSelect ? speechVoiceSelect.value : 'default'
     };
 
+    // Apply theme immediately and save locally
+    if (window.themeManager) {
+        window.themeManager.savePreviewedTheme();
+    } else {
+        applyTheme(preferences.theme);
+        localStorage.setItem('userPreferences', JSON.stringify(preferences));
+    }
+    
+    // Store voice preference separately for article-view.js
+    if (preferences.speech_voice && preferences.speech_voice !== 'default') {
+        localStorage.setItem('preferredVoice', preferences.speech_voice);
+    } else {
+        localStorage.removeItem('preferredVoice');
+    }
+
+    // If no token, show message about local-only save
+    if (!token) {
+        console.warn('No token found - saving preferences locally only');
+        showNotification('Preferences saved locally (login to sync with server)', 'info');
+        return;
+    }
+
+    // Try to save to server
     fetch(getApiUrl('/api/user/preferences'), {
         method: 'POST',
         headers: {
@@ -1223,32 +1242,47 @@ function saveUserPreferences() {
         },
         body: JSON.stringify(preferences)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            if (response.status === 401) {
+                // Token is invalid/expired
+                console.warn('Authentication failed - token may be expired');
+                localStorage.removeItem('authToken');
+                showNotification('Session expired - preferences saved locally', 'info');
+                return null;
+            }
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        if (data === null) {
+            // Already handled 401 above
+            return;
+        }
+        
         if (data.message) {
             showNotification('Preferences saved successfully!', 'success');
-            // Save the previewed theme permanently using ThemeManager
-            if (window.themeManager) {
-                window.themeManager.savePreviewedTheme();
+        } else if (data.error) {
+            // Handle specific backend errors
+            if (data.error.includes('token') || data.error.includes('Token')) {
+                console.warn('Token error from backend');
+                localStorage.removeItem('authToken');
+                showNotification('Session expired - preferences saved locally', 'info');
             } else {
-                applyTheme(preferences.theme);
-                // Store preferences in localStorage for immediate use
-                localStorage.setItem('userPreferences', JSON.stringify(preferences));
+                console.error('Backend error:', data.error);
+                showNotification('Server error - preferences saved locally', 'info');
             }
-            // Store voice preference separately for article-view.js
-            if (preferences.speech_voice && preferences.speech_voice !== 'default') {
-                localStorage.setItem('preferredVoice', preferences.speech_voice);
-            } else {
-                localStorage.removeItem('preferredVoice');
-            }
-        } else {
-            console.error('Failed to save preferences:', data.error);
-            showNotification('Failed to save preferences', 'error');
         }
     })
     .catch(error => {
         console.error('Error saving preferences:', error);
-        showNotification('Error saving preferences', 'error');
+        // Network or other errors - preferences are still saved locally
+        if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+            showNotification('Network error - preferences saved locally', 'info');
+        } else {
+            showNotification('Error saving to server - preferences saved locally', 'info');
+        }
     });
 }
 

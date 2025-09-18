@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Preferences Save</title>
+    <script src="config.js"></script>
+    <script src="my-articles.js"></script>
+</head>
+<body>
+    <h1>Test Preferences Save</h1>
+    
+    <div id="settings-modal" style="display: block;">
+        <h2>Settings</h2>
+        <select id="theme-select">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+        </select>
+        <select id="speech-rate-select">
+            <option value="0.5">0.5x</option>
+            <option value="1.0" selected>1.0x</option>
+            <option value="1.5">1.5x</option>
+        </select>
+        <select id="speech-voice-select">
+            <option value="default" selected>Default Voice</option>
+        </select>
+        <button id="save-preferences-btn">Save Preferences</button>
+    </div>
+
+    <div id="notification-toast"></div>
+
+    <script>
+        // Mock localStorage auth token
+        localStorage.setItem('authToken', 'test-token-123');
+        
+        // Test if functions are available
+        console.log('=== TESTING PREFERENCES SAVE ===');
+        console.log('getApiUrl available:', typeof getApiUrl);
+        console.log('saveUserPreferences available:', typeof saveUserPreferences);
+        console.log('showNotification available:', typeof showNotification);
+        
+        if (typeof getApiUrl === 'function') {
+            console.log('getApiUrl test:', getApiUrl('/test'));
+        }
+        
+        // Add click handler to log what's happening
+        document.getElementById('save-preferences-btn').addEventListener('click', function() {
+            console.log('Save button clicked');
+            console.log('Before calling saveUserPreferences');
+            try {
+                saveUserPreferences();
+                console.log('saveUserPreferences called successfully');
+            } catch (error) {
+                console.error('Error calling saveUserPreferences:', error);
+            }
+        });
+        
+        // Mock showNotification if not available
+        if (typeof showNotification !== 'function') {
+            window.showNotification = function(message, type) {
+                console.log('NOTIFICATION:', type, message);
+                document.getElementById('notification-toast').textContent = message;
+                document.getElementById('notification-toast').style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 15px 20px;
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: 500;
+                    z-index: 10000;
+                    background-color: ${type === 'success' ? '#10b981' : '#ef4444'};
+                `;
+            };
+        }
+        
+        // Mock applyTheme if not available
+        if (typeof applyTheme !== 'function') {
+            window.applyTheme = function(theme) {
+                console.log('Applying theme:', theme);
+            };
+        }
+    </script>
+</body>
+</html>

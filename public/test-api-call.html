@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Call</title>
+    <script src="config.js"></script>
+</head>
+<body>
+    <h1>Test API Call</h1>
+    
+    <div style="margin: 20px; padding: 10px; border: 1px solid #ccc;">
+        <h3>Test API Call:</h3>
+        <button id="test-api-btn" style="padding: 10px 20px; background: #28a745; color: white; border: none; cursor: pointer;">Test API Call</button>
+        <div id="api-results"></div>
+    </div>
+
+    <script>
+        const resultsDiv = document.getElementById('api-results');
+        
+        function log(message, isError = false) {
+            const p = document.createElement('p');
+            p.textContent = message;
+            p.style.color = isError ? 'red' : 'black';
+            p.style.margin = '5px 0';
+            resultsDiv.appendChild(p);
+            console.log(message);
+        }
+
+        document.getElementById('test-api-btn').addEventListener('click', function() {
+            resultsDiv.innerHTML = '';
+            log('=== Testing API Call ===');
+            
+            const token = 'test-token-123';
+            const preferences = {
+                theme: 'light',
+                speech_rate: 1.0,
+                speech_voice: 'default'
+            };
+
+            log('Token: ' + token);
+            log('Preferences: ' + JSON.stringify(preferences));
+            
+            try {
+                const apiUrl = getApiUrl('/api/user/preferences');
+                log('API URL: ' + apiUrl);
+                
+                log('Making fetch request...');
+                
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(preferences)
+                })
+                .then(response => {
+                    log('Response received. Status: ' + response.status);
+                    log('Response ok: ' + response.ok);
+                    log('Response status text: ' + response.statusText);
+                    
+                    return response.text().then(text => {
+                        log('Raw response text: ' + text);
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            log('Failed to parse JSON: ' + e.message, true);
+                            return { error: 'Invalid JSON response', raw: text };
+                        }
+                    });
+                })
+                .then(data => {
+                    log('Parsed response data: ' + JSON.stringify(data));
+                    if (data.message) {
+                        log('SUCCESS: ' + data.message);
+                    } else if (data.error) {
+                        log('ERROR: ' + data.error, true);
+                    } else {
+                        log('Unknown response format', true);
+                    }
+                })
+                .catch(error => {
+                    log('FETCH ERROR: ' + error.message, true);
+                    log('Error stack: ' + error.stack, true);
+                });
+                
+            } catch (error) {
+                log('EXCEPTION: ' + error.message, true);
+                log('Error stack: ' + error.stack, true);
+            }
+        });
+    </script>
+</body>
+</html>

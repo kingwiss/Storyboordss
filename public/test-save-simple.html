@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Save Preferences</title>
+    <script src="config.js"></script>
+</head>
+<body>
+    <h1>Test Save Preferences Function</h1>
+    
+    <div id="settings-modal" style="display: block; border: 1px solid #ccc; padding: 20px; margin: 20px;">
+        <h2>Settings</h2>
+        <label>Theme:</label>
+        <select id="theme-select">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+        </select>
+        <br><br>
+        <label>Speech Rate:</label>
+        <select id="speech-rate-select">
+            <option value="0.5">0.5x</option>
+            <option value="1.0" selected>1.0x</option>
+            <option value="1.5">1.5x</option>
+        </select>
+        <br><br>
+        <label>Speech Voice:</label>
+        <select id="speech-voice-select">
+            <option value="default" selected>Default Voice</option>
+        </select>
+        <br><br>
+        <button id="save-preferences-btn" style="padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer;">Save Preferences</button>
+    </div>
+
+    <div id="notification-toast" style="display: none;"></div>
+
+    <div id="test-results" style="margin: 20px; padding: 10px; border: 1px solid #ccc;">
+        <h3>Test Results:</h3>
+        <div id="results-content"></div>
+    </div>
+
+    <script>
+        // Test if functions are available
+        const resultsDiv = document.getElementById('results-content');
+        function log(message) {
+            resultsDiv.innerHTML += message + '<br>';
+            console.log(message);
+        }
+
+        log('=== TESTING PREFERENCES SAVE ===');
+        log('getApiUrl available: ' + (typeof getApiUrl === 'function'));
+        log('CONFIG available: ' + (typeof CONFIG === 'object'));
+        
+        if (typeof getApiUrl === 'function') {
+            log('getApiUrl test: ' + getApiUrl('/test'));
+        }
+        
+        if (typeof CONFIG === 'object') {
+            log('CONFIG.API_BASE_URL: ' + CONFIG.API_BASE_URL);
+            log('CONFIG.IS_DEVELOPMENT: ' + CONFIG.IS_DEVELOPMENT);
+            log('CONFIG.BACKEND_DEPLOYED: ' + CONFIG.BACKEND_DEPLOYED);
+        }
+
+        // Mock localStorage auth token
+        localStorage.setItem('authToken', 'test-token-123');
+        
+        // Mock functions that might be missing
+        window.showNotification = function(message, type) {
+            log('NOTIFICATION: ' + type + ' - ' + message);
+            const toast = document.getElementById('notification-toast');
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 10000;
+                background-color: ${type === 'success' ? '#10b981' : '#ef4444'};
+                display: block;
+            `;
+            
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        };
+        
+        window.applyTheme = function(theme) {
+            log('Applying theme: ' + theme);
+        };
+        
+        window.themeManager = null; // Mock themeManager
+
+        // Simple save preferences function
+        function saveUserPreferences() {
+            log('=== saveUserPreferences called ===');
+            
+            const token = localStorage.getItem('authToken');
+            const themeSelect = document.getElementById('theme-select');
+            const speechRateSelect = document.getElementById('speech-rate-select');
+            const speechVoiceSelect = document.getElementById('speech-voice-select');
+            
+            log('Token found: ' + (!!token));
+            log('Theme select: ' + (themeSelect ? themeSelect.value : 'null'));
+            log('Speech rate select: ' + (speechRateSelect ? speechRateSelect.value : 'null'));
+            log('Speech voice select: ' + (speechVoiceSelect ? speechVoiceSelect.value : 'null'));
+            
+            if (!token) {
+                log('ERROR: No token found');
+                showNotification('Please log in to save preferences', 'error');
+                return;
+            }
+
+            const preferences = {
+                theme: themeSelect ? themeSelect.value : 'light',
+                speech_rate: speechRateSelect ? parseFloat(speechRateSelect.value) : 1.0,
+                speech_voice: speechVoiceSelect ? speechVoiceSelect.value : 'default'
+            };
+
+            log('Saving preferences: ' + JSON.stringify(preferences));
+
+            try {
+                const apiUrl = getApiUrl('/api/user/preferences');
+                log('API URL: ' + apiUrl);
+
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(preferences)
+                })
+                .then(response => {
+                    log('Response status: ' + response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    log('Response data: ' + JSON.stringify(data));
+                    if (data.message) {
+                        showNotification('Preferences saved successfully!', 'success');
+                        applyTheme(preferences.theme);
+                        localStorage.setItem('userPreferences', JSON.stringify(preferences));
+                        if (preferences.speech_voice && preferences.speech_voice !== 'default') {
+                            localStorage.setItem('preferredVoice', preferences.speech_voice);
+                        } else {
+                            localStorage.removeItem('preferredVoice');
+                        }
+                    } else {
+                        log('ERROR: Failed to save preferences - ' + data.error);
+                        showNotification('Failed to save preferences', 'error');
+                    }
+                })
+                .catch(error => {
+                    log('ERROR: Fetch error - ' + error.message);
+                    showNotification('Error saving preferences: ' + error.message, 'error');
+                });
+            } catch (error) {
+                log('ERROR: Exception - ' + error.message);
+                showNotification('Error: ' + error.message, 'error');
+            }
+        }
+        
+        // Add click handler
+        document.getElementById('save-preferences-btn').addEventListener('click', function() {
+            log('Save button clicked');
+            saveUserPreferences();
+        });
+    </script>
+</body>
+</html>

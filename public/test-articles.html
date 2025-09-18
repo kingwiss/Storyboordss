@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Articles Display</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .article-card { border: 1px solid #ddd; margin: 10px 0; padding: 10px; }
+        #test-results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Articles Display Test</h1>
+    
+    <div class="test-section">
+        <h3>Test 1: Authentication Check</h3>
+        <button onclick="testAuth()">Check Authentication</button>
+        <div id="auth-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 2: Load Articles</h3>
+        <button onclick="testLoadArticles()">Load Articles</button>
+        <div id="load-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 3: Render Articles</h3>
+        <button onclick="testRenderArticles()">Test Render</button>
+        <div id="render-result"></div>
+        <div id="articles-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding: 20px;"></div>
+    </div>
+    
+    <div id="test-results"></div>
+
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        let testArticles = [];
+        
+        function testAuth() {
+            const result = document.getElementById('auth-result');
+            if (auth && auth.currentUser) {
+                result.innerHTML = '<div class="success">✓ Authentication: User logged in</div>';
+                return true;
+            } else {
+                result.innerHTML = '<div class="error">✗ Authentication: No user logged in</div>';
+                return false;
+            }
+        }
+        
+        async function testLoadArticles() {
+            const result = document.getElementById('load-result');
+            result.innerHTML = 'Loading articles...';
+            
+            try {
+                const authToken = auth.authToken;
+                if (!authToken) {
+                    result.innerHTML = '<div class="error">✗ No auth token available</div>';
+                    return;
+                }
+                
+                const response = await fetch(getApiUrl('/api/user/audiobooks'), {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    testArticles = data.audiobooks || [];
+                    result.innerHTML = `<div class="success">✓ Loaded ${testArticles.length} articles</div>`;
+                } else {
+                    result.innerHTML = '<div class="error">✗ Failed to load articles</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">✗ Error: ${error.message}</div>`;
+            }
+        }
+        
+        function testRenderArticles() {
+            const result = document.getElementById('render-result');
+            const container = document.getElementById('articles-container');
+            
+            if (testArticles.length === 0) {
+                result.innerHTML = '<div class="error">✗ No articles to render</div>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            testArticles.forEach(article => {
+                const articleCard = document.createElement('div');
+                articleCard.className = 'article-card';
+                articleCard.dataset.id = article.id;
+                
+                articleCard.innerHTML = `
+                    <h3>${article.title || 'Untitled'}</h3>
+                    <p>${article.summary || 'No summary'}</p>
+                    <small>ID: ${article.id}</small>
+                `;
+                
+                container.appendChild(articleCard);
+            });
+            
+            result.innerHTML = `<div class="success">✓ Rendered ${testArticles.length} articles</div>`;
+        }
+        
+        // Auto-run tests when page loads
+        window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                testAuth();
+                testLoadArticles();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

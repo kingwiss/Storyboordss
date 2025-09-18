@@ -1768,7 +1768,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function handleSpeedChange() {
-        if (ttsState.currentUtterance) {
+        if (ttsState.currentUtterance || ttsState.isPaused || ttsState.isPlaying) {
             const wasPlaying = ttsState.isPlaying;
             const wasPaused = ttsState.isPaused;
             
@@ -1809,6 +1809,50 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Set up the end event
         ttsState.currentUtterance.onend = handleSpeechEnd;
+        
+        // Set up the start event to properly update UI when speech starts
+        ttsState.currentUtterance.onstart = () => {
+            ttsState.isPlaying = true;
+            
+            // Update play/pause button to show pause icon when TTS actually starts
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            if (playPauseBtn) {
+                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i><span>Pause</span>';
+            }
+            
+            if (ttsState.currentWordIndex < ttsState.totalWords) {
+                highlightWord(ttsState.currentWordIndex);
+            }
+            showScrollButton();
+            // Lower background music volume when TTS starts
+            if (window.ambientPlayer && window.ambientPlayer.isPlaying) {
+                window.ambientPlayer.setVolume(0.02); // Very low volume during speech
+            }
+            
+            // Sync with persistent audio manager
+            if (window.persistentAudio) {
+                window.persistentAudio.syncWithArticleView(
+                    currentArticle.id,
+                    ttsState.isPlaying,
+                    ttsState.currentWordIndex,
+                    ttsState.totalWords,
+                    ttsState.fullArticleText
+                );
+            }
+            
+            // Save current article state for header navigation button
+            localStorage.setItem('currentArticleState', JSON.stringify({
+                articleId: currentArticle.id,
+                articleTitle: currentArticle.title,
+                isPlaying: true,
+                currentWordIndex: ttsState.currentWordIndex,
+                totalWords: ttsState.totalWords,
+                timestamp: Date.now()
+            }));
+            
+            // Notify floating TTS tracker that TTS started
+            window.dispatchEvent(new CustomEvent('ttsStarted'));
+        };
         
         // Make sure we maintain paused state
         ttsState.isPlaying = false;

@@ -139,6 +139,32 @@ app.use('/api/auth', authRoutes);
 // Article Routes - Use the new article-routes module
 const articleRoutes = require('./article-routes');
 app.use('/api', articleRoutes);
+
+// Registration endpoint
+app.post('/api/auth/register', async (req, res) => {
+  const { username, email, password } = req.body;
+
+  if (!username || !email || !password) {
+    return res.status(400).json({ error: 'Username, email, and password are required' });
+  }
+
+  try {
+    // Check if email already exists
+    db.get('SELECT id FROM users WHERE email = ?', [email], async (err, user) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      if (user) {
+        return res.status(400).json({ error: 'Email already in use' });
+      }
+
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      // Create user
+      db.run(
         'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
         [username, email, hashedPassword],
         function (err) {
@@ -423,7 +449,6 @@ app.post('/api/auth/check-password', async (req, res) => {
 
   res.json({ unique: !isCommon });
 });
->>>>>>> 0cc69f4663dec85dc8cf029b3bd538971e11de8e
 
 // User Routes
 
@@ -434,11 +459,7 @@ app.get('/api/user/profile', authenticateToken, (req, res) => {
      (SELECT COUNT(*) FROM user_audiobooks WHERE user_id = u.id) as article_count,
      (SELECT MAX(created_at) FROM user_audiobooks WHERE user_id = u.id) as last_activity
      FROM users u WHERE u.id = ?`,
-<<<<<<< HEAD
-    [req.user.userId],
-=======
     [req.user.id],
->>>>>>> 0cc69f4663dec85dc8cf029b3bd538971e11de8e
     (err, user) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
@@ -464,11 +485,7 @@ app.get('/api/user/profile', authenticateToken, (req, res) => {
 app.get('/api/user/preferences', authenticateToken, (req, res) => {
   db.get(
     'SELECT * FROM user_preferences WHERE user_id = ?',
-<<<<<<< HEAD
-    [req.user.userId],
-=======
     [req.user.id],
->>>>>>> 0cc69f4663dec85dc8cf029b3bd538971e11de8e
     (err, preferences) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
@@ -483,32 +500,45 @@ app.get('/api/user/preferences', authenticateToken, (req, res) => {
 app.post('/api/user/preferences', authenticateToken, (req, res) => {
   const { theme, speech_rate, speech_voice } = req.body;
 
+  // First, try to update existing preferences
   db.run(
-    `INSERT INTO user_preferences (user_id, theme, speech_rate, speech_voice) 
-     VALUES (?, ?, ?, ?) 
-     ON CONFLICT(user_id) DO UPDATE SET 
-     theme = COALESCE(?, theme),
-     speech_rate = COALESCE(?, speech_rate),
-     speech_voice = COALESCE(?, speech_voice)`,
+    `UPDATE user_preferences 
+     SET theme = COALESCE(?, theme),
+         speech_rate = COALESCE(?, speech_rate),
+         speech_voice = COALESCE(?, speech_voice)
+     WHERE user_id = ?`,
     [
-<<<<<<< HEAD
-      req.user.userId,
-=======
-      req.user.id,
->>>>>>> 0cc69f4663dec85dc8cf029b3bd538971e11de8e
       theme,
       speech_rate,
       speech_voice,
-      theme,
-      speech_rate,
-      speech_voice
+      req.user.id
     ],
     function (err) {
       if (err) {
         return res.status(500).json({ error: 'Failed to update preferences' });
       }
 
-      res.json({ message: 'Preferences updated successfully' });
+      // If no rows were updated, insert new preferences
+      if (this.changes === 0) {
+        db.run(
+          `INSERT INTO user_preferences (user_id, theme, speech_rate, speech_voice) 
+           VALUES (?, COALESCE(?, 'light'), COALESCE(?, '1'), COALESCE(?, ''))`,
+          [
+            req.user.id,
+            theme,
+            speech_rate,
+            speech_voice
+          ],
+          function (err) {
+            if (err) {
+              return res.status(500).json({ error: 'Failed to create preferences' });
+            }
+            res.json({ message: 'Preferences created successfully' });
+          }
+        );
+      } else {
+        res.json({ message: 'Preferences updated successfully' });
+      }
     }
   );
 });

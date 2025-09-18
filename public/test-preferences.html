@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Preferences Saving</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        #log { background-color: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Test Preferences Saving Functionality</h1>
+    
+    <div class="test-section info">
+        <h3>Authentication Status</h3>
+        <p id="auth-status">Checking authentication...</p>
+        <button onclick="checkAuth()">Check Auth</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test Preference Saving</h3>
+        <label>Theme: 
+            <select id="test-theme">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="auto">Auto</option>
+            </select>
+        </label><br><br>
+        <label>Speech Rate: 
+            <select id="test-speech-rate">
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+            </select>
+        </label><br><br>
+        <label>Speech Voice: 
+            <select id="test-speech-voice">
+                <option value="default" selected>Default</option>
+                <option value="Google US English">Google US English</option>
+                <option value="Microsoft David">Microsoft David</option>
+            </select>
+        </label><br><br>
+        <button onclick="saveTestPreferences()">Save Preferences</button>
+        <button onclick="loadTestPreferences()">Load Preferences</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test Results</h3>
+        <div id="test-results">Ready to test...</div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Console Log</h3>
+        <div id="log"></div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            const userEmail = localStorage.getItem('userEmail');
+            
+            log(`Token: ${token ? 'Present' : 'Missing'}`);
+            log(`User Email: ${userEmail || 'Not set'}`);
+            
+            if (token && userEmail) {
+                document.getElementById('auth-status').innerHTML = 
+                    `<strong>Authenticated</strong><br>Email: ${userEmail}<br>Token: ${token.substring(0, 20)}...`;
+                return true;
+            } else {
+                document.getElementById('auth-status').innerHTML = 
+                    '<strong>Not Authenticated</strong><br>Please log in first.';
+                return false;
+            }
+        }
+        
+        async function saveTestPreferences() {
+            const results = document.getElementById('test-results');
+            
+            if (!checkAuth()) {
+                results.innerHTML = '<div class="error">Not authenticated. Please log in first.</div>';
+                return;
+            }
+            
+            const preferences = {
+                theme: document.getElementById('test-theme').value,
+                speech_rate: parseFloat(document.getElementById('test-speech-rate').value),
+                speech_voice: document.getElementById('test-speech-voice').value
+            };
+            
+            log('Saving preferences: ' + JSON.stringify(preferences));
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(getApiUrl('/api/user/preferences'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(preferences)
+                });
+                
+                const data = await response.json();
+                log(`Response status: ${response.status}`);
+                log(`Response data: ${JSON.stringify(data)}`);
+                
+                if (response.ok) {
+                    results.innerHTML = '<div class="success">Preferences saved successfully!</div>';
+                    localStorage.setItem('userPreferences', JSON.stringify(preferences));
+                } else {
+                    results.innerHTML = `<div class="error">Error saving preferences: ${data.message || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`);
+                results.innerHTML = `<div class="error">Network error: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadTestPreferences() {
+            const results = document.getElementById('test-results');
+            
+            if (!checkAuth()) {
+                results.innerHTML = '<div class="error">Not authenticated. Please log in first.</div>';
+                return;
+            }
+            
+            log('Loading preferences...');
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(getApiUrl('/api/user/preferences'), {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                log(`Response status: ${response.status}`);
+                log(`Response data: ${JSON.stringify(data)}`);
+                
+                if (response.ok) {
+                    results.innerHTML = '<div class="success">Preferences loaded successfully!</div>';
+                    
+                    // Update form fields
+                    if (data.theme) document.getElementById('test-theme').value = data.theme;
+                    if (data.speech_rate) document.getElementById('test-speech-rate').value = data.speech_rate;
+                    if (data.speech_voice) document.getElementById('test-speech-voice').value = data.speech_voice;
+                    
+                    log('Loaded preferences: ' + JSON.stringify(data));
+                } else {
+                    results.innerHTML = `<div class="error">Error loading preferences: ${data.message || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`);
+                results.innerHTML = `<div class="error">Network error: ${error.message}</div>`;
+            }
+        }
+        
+        // Check auth on page load
+        window.onload = function() {
+            checkAuth();
+            log('Test page loaded');
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Preferences Save - Final</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { margin: 5px; padding: 10px; cursor: pointer; }
+        #log { background: #f5f5f5; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Test Preferences Save - Final</h1>
+    
+    <div class="test-section">
+        <h2>Current State</h2>
+        <div id="current-state">
+            <p>Loading state...</p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Preferences</h2>
+        <label>Theme: 
+            <select id="theme-select">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="auto">Auto</option>
+            </select>
+        </label><br><br>
+        <label>Speech Rate: 
+            <select id="speech-rate-select">
+                <option value="0.5">Slow</option>
+                <option value="1.0" selected>Normal</option>
+                <option value="1.5">Fast</option>
+                <option value="2.0">Very Fast</option>
+            </select>
+        </label><br><br>
+        <label>Speech Voice: 
+            <select id="speech-voice-select">
+                <option value="default">Default</option>
+                <option value="Google US English">Google US English</option>
+                <option value="Microsoft David">Microsoft David</option>
+            </select>
+        </label><br><br>
+        <button onclick="testSavePreferences()">Test Save Preferences</button>
+        <button onclick="setValidToken()">Set Valid Token</button>
+        <button onclick="setInvalidToken()">Set Invalid Token</button>
+        <button onclick="clearToken()">Clear Token</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="log"></div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        // Mock functions that might be missing
+        if (typeof showNotification === 'undefined') {
+            window.showNotification = function(message, type) {
+                log(`Notification: ${message} (${type})`);
+                // Also show browser notification
+                if (Notification.permission === 'granted') {
+                    new Notification('Preferences Test', { body: message });
+                }
+            };
+        }
+
+        if (typeof applyTheme === 'undefined') {
+            window.applyTheme = function(theme) {
+                log(`Theme applied: ${theme}`);
+                document.body.className = theme === 'dark' ? 'dark-theme' : '';
+            };
+        }
+
+        if (typeof window.themeManager === 'undefined') {
+            window.themeManager = {
+                savePreviewedTheme: function() {
+                    log('ThemeManager: Previewed theme saved');
+                }
+            };
+        }
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const colorClass = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            logDiv.innerHTML += `<div class="${colorClass}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function updateState() {
+            const token = localStorage.getItem('authToken');
+            const prefs = localStorage.getItem('userPreferences');
+            const preferredVoice = localStorage.getItem('preferredVoice');
+            
+            document.getElementById('current-state').innerHTML = `
+                <p><strong>Auth Token:</strong> ${token ? token.substring(0, 20) + '...' : 'None'}</p>
+                <p><strong>User Preferences:</strong> ${prefs || 'None'}</p>
+                <p><strong>Preferred Voice:</strong> ${preferredVoice || 'None'}</p>
+            `;
+        }
+
+        function setValidToken() {
+            // This would normally be a valid JWT token from login
+            const mockValidToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjM0NTYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3MzA1NzYwMDB9.mock_signature';
+            localStorage.setItem('authToken', mockValidToken);
+            log('Valid token set', 'success');
+            updateState();
+        }
+
+        function setInvalidToken() {
+            const invalidToken = 'invalid_token_12345';
+            localStorage.setItem('authToken', invalidToken);
+            log('Invalid token set', 'info');
+            updateState();
+        }
+
+        function clearToken() {
+            localStorage.removeItem('authToken');
+            log('Token cleared', 'info');
+            updateState();
+        }
+
+        async function testSavePreferences() {
+            log('Testing save preferences...', 'info');
+            
+            try {
+                // Call the actual save function
+                if (typeof saveUserPreferences === 'function') {
+                    saveUserPreferences();
+                    log('saveUserPreferences() called successfully', 'success');
+                } else {
+                    log('saveUserPreferences function not found', 'error');
+                    
+                    // Fallback test - simulate the function
+                    const token = localStorage.getItem('authToken');
+                    const themeSelect = document.getElementById('theme-select');
+                    const speechRateSelect = document.getElementById('speech-rate-select');
+                    const speechVoiceSelect = document.getElementById('speech-voice-select');
+                    
+                    const preferences = {
+                        theme: themeSelect ? themeSelect.value : 'light',
+                        speech_rate: speechRateSelect ? parseFloat(speechRateSelect.value) : 1.0,
+                        speech_voice: speechVoiceSelect ? speechVoiceSelect.value : 'default'
+                    };
+
+                    // Apply theme immediately
+                    applyTheme(preferences.theme);
+                    localStorage.setItem('userPreferences', JSON.stringify(preferences));
+                    
+                    if (preferences.speech_voice && preferences.speech_voice !== 'default') {
+                        localStorage.setItem('preferredVoice', preferences.speech_voice);
+                    } else {
+                        localStorage.removeItem('preferredVoice');
+                    }
+
+                    log('Preferences saved locally', 'success');
+                    showNotification('Preferences saved locally', 'success');
+                    
+                    if (token) {
+                        log('Attempting server save with token...', 'info');
+                        try {
+                            const response = await fetch(getApiUrl('/api/user/preferences'), {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(preferences)
+                            });
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (data.message) {
+                                    log('Server save successful!', 'success');
+                                    showNotification('Preferences saved to server!', 'success');
+                                } else {
+                                    log(`Server error: ${data.error}`, 'error');
+                                    showNotification(`Server error: ${data.error}`, 'error');
+                                }
+                            } else if (response.status === 401) {
+                                log('Authentication failed - token invalid', 'error');
+                                localStorage.removeItem('authToken');
+                                showNotification('Session expired - preferences saved locally', 'info');
+                            } else {
+                                log(`HTTP error: ${response.status}`, 'error');
+                                showNotification(`Server error - preferences saved locally`, 'info');
+                            }
+                        } catch (error) {
+                            log(`Network error: ${error.message}`, 'error');
+                            showNotification('Network error - preferences saved locally', 'info');
+                        }
+                    } else {
+                        log('No token - saved locally only', 'info');
+                        showNotification('Preferences saved locally (login to sync)', 'info');
+                    }
+                }
+                
+                updateState();
+                
+            } catch (error) {
+                log(`Test failed: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+
+        // Load the actual saveUserPreferences function from script.js
+        function loadSaveFunction() {
+            fetch('script.js')
+                .then(response => response.text())
+                .then(text => {
+                    // Extract just the saveUserPreferences function
+                    const functionMatch = text.match(/function saveUserPreferences\(\) \{[\s\S]*?\n\}/);
+                    if (functionMatch) {
+                        try {
+                            eval('(' + functionMatch[0] + ')');
+                            log('saveUserPreferences function loaded from script.js', 'success');
+                        } catch (error) {
+                            log(`Error loading function: ${error.message}`, 'error');
+                        }
+                    } else {
+                        log('Could not find saveUserPreferences function in script.js', 'error');
+                    }
+                })
+                .catch(error => {
+                    log(`Could not load script.js: ${error.message}`, 'error');
+                });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSaveFunction();
+            updateState();
+            log('Test page loaded - ready to test preferences save', 'info');
+            
+            // Request notification permission
+            if (Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        });
+    </script>
+</body>
+</html>

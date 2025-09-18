@@ -2,6 +2,11 @@
 let userArticles = [];
 let auth; // Use the shared RobustAuth instance
 
+// DOM elements
+let articlesContainer;
+let emptyState;
+let loadingState;
+
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize the shared authentication system
@@ -27,20 +32,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const signupError = document.getElementById('signup-error');
     
     // My Articles specific elements
-    const articlesContainer = document.getElementById('articles-container');
-    const emptyState = document.getElementById('empty-state');
-    const loadingState = document.getElementById('loading-state');
+    articlesContainer = document.getElementById('articles-container');
+    emptyState = document.getElementById('empty-state');
+    loadingState = document.getElementById('loading-state');
     
     // Initialize the articles page
     initializeArticlesPage();
     
-    // Articles data will be initialized in global scope
-    
-    // Floating button functionality is now handled by floating-tts-tracker.js
-    const CURRENT_ARTICLE_KEY = 'currentArticleState';
-    
-
-
+    // Check for autoplay parameter on page load
+    checkAutoplayAndClickLatest();
     
     // Authentication functions - use the shared RobustAuth instance
     function showError(element, message) {
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // This is now handled by the RobustAuth class
         // Just fetch articles if we're authenticated
         if (auth && auth.currentUser) {
-            fetchUserArticles();
+            loadUserArticles();
         } else {
             // Show empty state if not logged in
             if (articlesContainer) articlesContainer.style.display = 'none';
@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // The auth instance will handle authentication status
         // We just need to set up the articles page based on auth status
         if (auth && auth.currentUser) {
-            fetchUserArticles();
+            loadUserArticles();
         } else {
             // Show login prompt if not authenticated
             if (articlesContainer) articlesContainer.style.display = 'none';
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set up event listener for auth changes
         document.addEventListener('authStateChanged', function(e) {
             if (e.detail.isAuthenticated) {
-                fetchUserArticles();
+                loadUserArticles();
             } else {
                 // Show login prompt
                 if (articlesContainer) articlesContainer.style.display = 'none';
@@ -96,30 +96,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
-    }
-                    loadUserArticles();
-                } else {
-                    console.log('=== DEBUG: Auth failed, removing token');
-                    // Token is invalid, remove it
-                    localStorage.removeItem('authToken');
-                    authToken = null;
-                    currentUser = null;
-                    updateAuthUI();
-                    showEmptyState();
-                }
-            } catch (error) {
-                console.error('=== DEBUG: Auth check failed:', error);
-                localStorage.removeItem('authToken');
-                authToken = null;
-                currentUser = null;
-                updateAuthUI();
-                showEmptyState();
-            }
-        } else {
-            console.log('=== DEBUG: No auth token found, showing empty state');
-            updateAuthUI();
-            showEmptyState();
-        }
     }
     
     // Modal functions - copied from main app
@@ -413,6 +389,36 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Add the missing utility functions
+    function showLoadingState() {
+        if (loadingState) loadingState.style.display = 'flex';
+        if (articlesContainer) articlesContainer.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'none';
+    }
+    
+    function hideLoadingState() {
+        if (loadingState) loadingState.style.display = 'none';
+    }
+    
+    function showEmptyState() {
+        if (articlesContainer) articlesContainer.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'flex';
+    }
+    
+    function hideEmptyState() {
+        if (emptyState) emptyState.style.display = 'none';
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function checkAuthStatus() {
+        return auth && auth.currentUser;
+    }
+    
     if (signupForm && signupError) {
         signupForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -556,6 +562,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // My Articles specific functions
     async function loadUserArticles() {
+        const authToken = auth.authToken;
         console.log('=== DEBUG: loadUserArticles called, authToken:', authToken ? 'exists' : 'null');
         if (!authToken) {
             console.log('=== DEBUG: No auth token, showing empty state');
@@ -595,37 +602,78 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function renderArticles() {
-        hideLoadingState();
+        console.log('=== DEBUG: renderArticles called, userArticles:', userArticles ? userArticles.length : 'null');
         
         if (!userArticles || userArticles.length === 0) {
+            console.log('=== DEBUG: No articles to display, showing empty state');
             showEmptyState();
             return;
         }
         
+        // Ensure DOM elements exist
+        if (!articlesContainer) {
+            articlesContainer = document.getElementById('articles-container');
+        }
+        if (!emptyState) {
+            emptyState = document.getElementById('empty-state');
+        }
+        if (!loadingState) {
+            loadingState = document.getElementById('loading-state');
+        }
+        
+        if (!articlesContainer) {
+            console.error('=== DEBUG: Articles container not found!');
+            return;
+        }
+        
+        // Hide loading and empty states
+        hideLoadingState();
         hideEmptyState();
         
-        articlesContainer.innerHTML = userArticles.map(article => {
-            return `
-                <div class="article-card" data-id="${article.id}">
-                    <div class="article-header">
-                        <h3 class="article-title">${escapeHtml(article.title)}</h3>
-                    </div>
-                    <div class="article-content">
-                        <p class="article-summary">${escapeHtml(article.summary || 'No summary available')}</p>
-                    </div>
-                    <div class="card-actions">
-                        <button class="btn-view" onclick="viewArticle('${article.id}')" title="Read Article">
-                            <i class="fas fa-eye"></i> Read
-                        </button>
-                        <button class="btn-delete" onclick="deleteArticle('${article.id}')" title="Delete Article">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                    </div>
+        // Clear container and show it
+        articlesContainer.innerHTML = '';
+        articlesContainer.style.display = 'grid';
+        
+        console.log('=== DEBUG: Rendering', userArticles.length, 'articles');
+        
+        // Render each article
+        userArticles.forEach(article => {
+            const articleCard = document.createElement('div');
+            articleCard.className = 'article-card';
+            articleCard.dataset.id = article.id;
+            
+            articleCard.innerHTML = `
+                <div class="article-header">
+                    <h3 class="article-title">${escapeHtml(article.title || 'Untitled Article')}</h3>
+                </div>
+                <div class="article-content">
+                    <p class="article-summary">${escapeHtml(article.summary || 'No summary available')}</p>
+                </div>
+                <div class="card-actions">
+                    <button class="btn-view" title="Read Article">
+                        <i class="fas fa-eye"></i> Read
+                    </button>
+                    <button class="btn-delete" title="Delete Article">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
                 </div>
             `;
-        }).join('');
+            
+            // Add event listeners
+            const viewBtn = articleCard.querySelector('.btn-view');
+            if (viewBtn) {
+                viewBtn.addEventListener('click', () => viewArticle(article.id));
+            }
+            
+            const deleteBtn = articleCard.querySelector('.btn-delete');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => deleteArticle(article.id, article.title));
+            }
+            
+            articlesContainer.appendChild(articleCard);
+        });
         
-        // Check if we need to auto-click the latest article after rendering
+        // Check if we should auto-click the latest article
         checkAndAutoClickLatest();
     }
     
@@ -806,6 +854,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to perform the actual deletion
     async function performDeleteArticle(articleId) {
         try {
+            const authToken = auth.authToken;
             const response = await fetch(getApiUrl(`/api/user/audiobooks/${articleId}`), {
                 method: 'DELETE',
                 headers: {
@@ -825,7 +874,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error deleting article:', error);
             alert('Error deleting article');
         }
-    };
+    }
     
     // Initialize floating active article button functionality
     const activeArticleBtn = document.getElementById('active-article-btn');
@@ -883,6 +932,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize preferences functionality
     initializePreferences();
+    
+// Close the DOMContentLoaded event listener properly
 });
 
 // Profile modal functions
@@ -1017,7 +1068,7 @@ function updatePreferencesDisplay(preferences) {
     }
     
     if (speechRateSelect) {
-        speechRateSelect.value = preferences.speech_rate || 1.0;
+        speechRateSelect.value = preferences.speech_rate || '1';
     }
     
     if (speechVoiceSelect) {
@@ -1222,17 +1273,46 @@ function saveUserPreferences() {
     const speechRateSelect = document.getElementById('speech-rate-select');
     const speechVoiceSelect = document.getElementById('speech-voice-select');
     
-    if (!token) {
-        console.error('No token found');
-        return;
-    }
-
+    console.log('Save preferences clicked');
+    console.log('Token found:', !!token);
+    console.log('Theme select:', themeSelect?.value);
+    console.log('Speech rate select:', speechRateSelect?.value);
+    console.log('Speech voice select:', speechVoiceSelect?.value);
+    
+    // Always save preferences locally first
     const preferences = {
         theme: themeSelect ? themeSelect.value : 'light',
         speech_rate: speechRateSelect ? parseFloat(speechRateSelect.value) : 1.0,
         speech_voice: speechVoiceSelect ? speechVoiceSelect.value : 'default'
     };
 
+    console.log('Saving preferences:', preferences);
+
+    // Apply theme immediately
+    if (window.themeManager) {
+        window.themeManager.setTheme(preferences.theme);
+    } else {
+        applyTheme(preferences.theme);
+    }
+    
+    // Store preferences in localStorage for immediate use
+    localStorage.setItem('userPreferences', JSON.stringify(preferences));
+    
+    // Store voice preference separately for article-view.js
+    if (preferences.speech_voice && preferences.speech_voice !== 'default') {
+        localStorage.setItem('preferredVoice', preferences.speech_voice);
+    } else {
+        localStorage.removeItem('preferredVoice');
+    }
+
+    // If no token, show message about local-only save
+    if (!token) {
+        console.warn('No token found - saving preferences locally only');
+        showNotification('Preferences saved locally (login to sync with server)', 'info');
+        return;
+    }
+
+    // Try to save to server
     fetch(getApiUrl('/api/user/preferences'), {
         method: 'POST',
         headers: {
@@ -1241,32 +1321,49 @@ function saveUserPreferences() {
         },
         body: JSON.stringify(preferences)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            if (response.status === 401) {
+                // Token is invalid/expired
+                console.warn('Authentication failed - token may be expired');
+                localStorage.removeItem('authToken');
+                showNotification('Session expired - preferences saved locally', 'info');
+                return null;
+            }
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        if (data === null) {
+            // Already handled 401 above
+            return;
+        }
+        
+        console.log('Response data:', data);
         if (data.message) {
             showNotification('Preferences saved successfully!', 'success');
-            // Apply theme if changed using ThemeManager
-            if (window.themeManager) {
-                window.themeManager.setTheme(preferences.theme);
+        } else if (data.error) {
+            // Handle specific backend errors
+            if (data.error.includes('token') || data.error.includes('Token')) {
+                console.warn('Token error from backend');
+                localStorage.removeItem('authToken');
+                showNotification('Session expired - preferences saved locally', 'info');
             } else {
-                applyTheme(preferences.theme);
+                console.error('Backend error:', data.error);
+                showNotification('Server error - preferences saved locally', 'info');
             }
-            // Store preferences in localStorage for immediate use
-            localStorage.setItem('userPreferences', JSON.stringify(preferences));
-            // Store voice preference separately for article-view.js
-            if (preferences.speech_voice && preferences.speech_voice !== 'default') {
-                localStorage.setItem('preferredVoice', preferences.speech_voice);
-            } else {
-                localStorage.removeItem('preferredVoice');
-            }
-        } else {
-            console.error('Failed to save preferences:', data.error);
-            showNotification('Failed to save preferences', 'error');
         }
     })
     .catch(error => {
         console.error('Error saving preferences:', error);
-        showNotification('Error saving preferences', 'error');
+        // Network or other errors - preferences are still saved locally
+        if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+            showNotification('Network error - preferences saved locally', 'info');
+        } else {
+            showNotification('Error saving to server - preferences saved locally', 'info');
+        }
     });
 }
 
@@ -1290,16 +1387,73 @@ function resetUserPreferences() {
     showNotification('Preferences reset to default', 'info');
 }
 
-// Show notification function (simplified version)
+// Show notification function with improved UI
 function showNotification(message, type) {
     console.log(`${type.toUpperCase()}: ${message}`);
-    // You can implement a proper notification system here if needed
-    alert(message);
+    
+    // Create notification element if it doesn't exist
+    let notification = document.getElementById('notification-toast');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'notification-toast';
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 10000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        document.body.appendChild(notification);
+    }
+    
+    // Set color based on type
+    switch(type) {
+        case 'success':
+            notification.style.backgroundColor = '#10b981';
+            break;
+        case 'error':
+            notification.style.backgroundColor = '#ef4444';
+            break;
+        case 'info':
+            notification.style.backgroundColor = '#3b82f6';
+            break;
+        default:
+            notification.style.backgroundColor = '#6b7280';
+    }
+    
+    // Set message and show
+    notification.textContent = message;
+    notification.style.transform = 'translateX(0)';
+    
+    // Hide after 3 seconds
+    setTimeout(() => {
+        notification.style.transform = 'translateX(400px)';
+    }, 3000);
 }
 
-// Apply theme function (simplified version)
+// Apply theme function with proper fallback
 function applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
+    try {
+        // Use ThemeManager if available
+        if (window.themeManager) {
+            window.themeManager.setTheme(theme);
+        } else {
+            // Fallback to direct theme application
+            document.documentElement.setAttribute('data-theme', theme);
+            // Store in localStorage for consistency
+            localStorage.setItem('theme', theme);
+        }
+        console.log(`Theme applied: ${theme}`);
+    } catch (error) {
+        console.error('Error applying theme:', error);
+    }
 }
 
 // Return to Article Button Functionality

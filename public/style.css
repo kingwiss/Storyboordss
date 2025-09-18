@@ -3088,7 +3088,7 @@ h3 {
 }
 
 .dark-theme .article-view-title {
-    color: #e2e8f0 !important;
+    color: white !important;
 }
 
 .dark-theme .article-view-meta {
@@ -3543,7 +3543,7 @@ h3 {
 }
 
 .article-view-title {
-    font-size: 2.6em;
+    font-size: 3.5em;
     font-weight: 700;
     color: white;
     margin-bottom: 15px;
@@ -4100,7 +4100,7 @@ h3 {
     }
     
     .article-view-title {
-        font-size: 1.8em;
+        font-size: 2.5em;
     }
     
     .article-view-meta {

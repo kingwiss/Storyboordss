@@ -4,11 +4,21 @@ class RobustAuth {
         this.authToken = localStorage.getItem('authToken');
         this.currentUser = null;
         this.baseURL = CONFIG.API_BASE_URL; // Use the configured API URL
+        this.backendAvailable = true;
+        this.fallbackMode = false;
         this.init();
     }
 
     init() {
         // Initialize authentication on page load
+        console.log('Initializing authentication system...');
+        console.log('Current baseURL:', this.baseURL);
+        console.log('Current hostname:', window.location.hostname);
+        console.log('Auth token exists:', !!this.authToken);
+        
+        // Test backend connectivity
+        this.testBackendConnection();
+        
         if (this.authToken) {
             this.validateToken();
         } else {
@@ -16,6 +26,162 @@ class RobustAuth {
             this.updateAuthUI();
         }
         this.setupEventListeners();
+    }
+
+    async testBackendConnection() {
+        try {
+            console.log('Testing backend connection...');
+            const healthData = await this.makeRequest('/api/auth/health', {
+                method: 'GET',
+                skipAuth: true
+            });
+            console.log('Backend connection successful:', healthData);
+            this.backendAvailable = true;
+            this.fallbackMode = false;
+            return true;
+        } catch (error) {
+            console.error('Backend connection failed:', error);
+            this.backendAvailable = false;
+            this.fallbackMode = true;
+            
+            // Show user-friendly error message
+            this.showConnectionError(error.message);
+            return false;
+        }
+    }
+
+    showConnectionError(message) {
+        console.error('Connection error detected:', message);
+        
+        // Create a temporary error notification
+        const errorDiv = document.createElement('div');
+        errorDiv.id = 'auth-connection-error';
+        errorDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 10000;
+            max-width: 300px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        `;
+        errorDiv.innerHTML = `
+            <strong>Authentication Error</strong><br>
+            ${message}<br>
+            <small>Using offline mode - some features may be limited.</small>
+        `;
+        
+        // Remove any existing error
+        const existingError = document.getElementById('auth-connection-error');
+        if (existingError) {
+            existingError.remove();
+        }
+        
+        document.body.appendChild(errorDiv);
+        
+        // Auto-remove after 10 seconds
+        setTimeout(() => {
+            if (errorDiv.parentNode) {
+                errorDiv.remove();
+            }
+        }, 10000);
+    }
+
+    // Fallback authentication methods for when backend is unavailable
+    async fallbackLogin(email, password) {
+        console.log('Using fallback authentication for login');
+        
+        try {
+            // Get stored fallback users
+            const fallbackUsers = JSON.parse(localStorage.getItem('fallbackUsers') || '[]');
+            
+            // Find user by email
+            const user = fallbackUsers.find(u => u.email === email);
+            if (!user) {
+                throw new Error('User not found');
+            }
+            
+            // Simple password check (in real app, this should be more secure)
+            if (user.password !== password) {
+                throw new Error('Invalid password');
+            }
+            
+            // Create a mock token and user data
+            const mockToken = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const mockUser = {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                isFallback: true
+            };
+            
+            this.authToken = mockToken;
+            this.currentUser = mockUser;
+            
+            localStorage.setItem('authToken', this.authToken);
+            localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+            
+            this.updateAuthUI();
+            this.showSuccess('Login successful! (Offline mode)');
+            
+            return { token: mockToken, user: mockUser };
+        } catch (error) {
+            console.error('Fallback login failed:', error);
+            throw new Error('Login failed: ' + error.message);
+        }
+    }
+
+    async fallbackSignup(username, email, password) {
+        console.log('Using fallback authentication for signup');
+        
+        try {
+            // Get stored fallback users
+            const fallbackUsers = JSON.parse(localStorage.getItem('fallbackUsers') || '[]');
+            
+            // Check if user already exists
+            if (fallbackUsers.find(u => u.email === email || u.username === username)) {
+                throw new Error('Username or email already exists');
+            }
+            
+            // Create new user
+            const newUser = {
+                id: Date.now().toString(),
+                username,
+                email,
+                password, // Note: In a real app, this should be hashed
+                createdAt: new Date().toISOString()
+            };
+            
+            // Add to fallback users
+            fallbackUsers.push(newUser);
+            localStorage.setItem('fallbackUsers', JSON.stringify(fallbackUsers));
+            
+            // Create a mock token and user data
+            const mockToken = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const mockUser = {
+                id: newUser.id,
+                username: newUser.username,
+                email: newUser.email,
+                isFallback: true
+            };
+            
+            this.authToken = mockToken;
+            this.currentUser = mockUser;
+            
+            localStorage.setItem('authToken', this.authToken);
+            localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+            
+            this.updateAuthUI();
+            this.showSuccess('Signup successful! (Offline mode)');
+            
+            return { token: mockToken, user: mockUser };
+        } catch (error) {
+            console.error('Fallback signup failed:', error);
+            throw new Error('Signup failed: ' + error.message);
+        }
     }
 
     setupEventListeners() {
@@ -74,12 +240,19 @@ class RobustAuth {
 
         try {
             console.log(`Making request to: ${url}`, finalOptions);
+            console.log(`Current baseURL: ${this.baseURL}`);
+            console.log(`Current endpoint: ${endpoint}`);
+            console.log(`Full URL: ${url}`);
             
             const response = await fetch(url, finalOptions);
+            
+            console.log(`Response status: ${response.status}`);
+            console.log(`Response ok: ${response.ok}`);
             
             // Check if response is ok
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: 'Network error' }));
+                console.error(`HTTP Error ${response.status}:`, errorData);
                 throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
             }
 
@@ -89,12 +262,17 @@ class RobustAuth {
             return data;
         } catch (error) {
             console.error(`Request to ${endpoint} failed:`, error);
+            console.error(`Error name: ${error.name}`);
+            console.error(`Error message: ${error.message}`);
+            console.error(`Error stack: ${error.stack}`);
             
             // Handle different types of errors
             if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                throw new Error('Network error: Unable to connect to server. Please check if the server is running on port 3001.');
+                throw new Error('Network error: Unable to connect to authentication server. Please check your internet connection and try again.');
             } else if (error.message.includes('CORS')) {
-                throw new Error('CORS error: Server configuration issue. Please contact support.');
+                throw new Error('CORS error: Server configuration issue. The backend may not be properly configured for cross-origin requests.');
+            } else if (error.message.includes('Failed to fetch')) {
+                throw new Error('Connection failed: Unable to reach the authentication server. The server may be temporarily unavailable.');
             } else {
                 throw error;
             }
@@ -115,6 +293,11 @@ class RobustAuth {
         if (!this.isValidEmail(email)) {
             this.showError('login-error', 'Please enter a valid email address');
             return false;
+        }
+
+        // If backend is not available, use fallback authentication
+        if (this.fallbackMode) {
+            return await this.fallbackLogin(email, password);
         }
 
         try {
@@ -145,6 +328,10 @@ class RobustAuth {
             }
         } catch (error) {
             console.error('Login error:', error);
+            // If backend fails, try fallback
+            if (!this.backendAvailable && error.message.includes('Unable to connect')) {
+                return await this.fallbackLogin(email, password);
+            }
             this.showError('login-error', error.message);
             return false;
         }
@@ -199,6 +386,11 @@ class RobustAuth {
         try {
             console.log('Attempting signup for:', username, email);
             
+            // If backend is not available, use fallback authentication
+            if (this.fallbackMode) {
+                return await this.fallbackSignup(username, email, password);
+            }
+
             const data = await this.makeRequest('/api/auth/register', {
                 method: 'POST',
                 body: JSON.stringify({ username, email, password }),
@@ -229,6 +421,12 @@ class RobustAuth {
             }
         } catch (error) {
             console.error('Signup error:', error);
+            
+            // If backend fails, try fallback
+            if (!this.backendAvailable && error.message.includes('Unable to connect')) {
+                return await this.fallbackSignup(username, email, password);
+            }
+            
             this.showError('signup-error', error.message);
             return false;
         }
@@ -315,6 +513,34 @@ class RobustAuth {
         // Get all elements with auth-logged-in and auth-logged-out classes
         const loggedInElements = document.querySelectorAll('.auth-logged-in');
         const loggedOutElements = document.querySelectorAll('.auth-logged-out');
+
+        // Add fallback mode indicator
+        if (this.fallbackMode) {
+            const existingIndicator = document.getElementById('fallback-mode-indicator');
+            if (!existingIndicator) {
+                const indicator = document.createElement('div');
+                indicator.id = 'fallback-mode-indicator';
+                indicator.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    left: 20px;
+                    background: #ffa500;
+                    color: white;
+                    padding: 10px;
+                    border-radius: 5px;
+                    font-size: 12px;
+                    z-index: 9999;
+                `;
+                indicator.innerHTML = '⚠️ Offline Mode - Limited functionality';
+                document.body.appendChild(indicator);
+            }
+        } else {
+            // Remove fallback indicator if it exists
+            const existingIndicator = document.getElementById('fallback-mode-indicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+        }
 
         if (this.currentUser) {
             // User is logged in

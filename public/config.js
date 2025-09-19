@@ -1,37 +1,34 @@
-// Configuration for different environments
-const CONFIG = {
-    // API Base URL - change this for production deployment
-    API_BASE_URL: window.location.hostname === 'localhost' 
-        ? 'http://localhost:3001'
-        : 'https://storyboordss-production.up.railway.app', // Railway deployment URL
+// Auto-detect environment and set API base URL
+const getApiBaseUrl = () => {
+    const hostname = window.location.hostname;
     
-    // Environment detection
-    IS_DEVELOPMENT: window.location.hostname === 'localhost',
-    IS_PRODUCTION: window.location.hostname !== 'localhost',
+    // Local development
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:3001';
+    }
     
-    // Backend deployment status - temporarily set to true for testing
-    BACKEND_DEPLOYED: true // Set to true after backend deployment
+    // Production - GitHub Pages deployment (same server for frontend and backend)
+    return window.location.origin;
 };
 
-// Helper function to get full API URL
-function getApiUrl(endpoint = '') {
-    // Allow local development, but require deployment for production
-    if (!CONFIG.BACKEND_DEPLOYED && CONFIG.IS_PRODUCTION) {
-        throw new Error('Backend deployment required. Please see BACKEND_DEPLOYMENT_GITHUB.md for instructions.');
+// Backend deployment status - ALWAYS TRUE for unified server
+const BACKEND_DEPLOYED = true;
+
+// Helper functions
+const getApiUrl = (endpoint) => {
+    const baseUrl = getApiBaseUrl();
+    return endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
+};
+
+const checkBackendHealth = async () => {
+    try {
+        const response = await fetch(getApiUrl('/api/auth/health'));
+        return response.ok;
+    } catch (error) {
+        console.warn('Backend health check failed:', error);
+        return false;
     }
-    return `${CONFIG.API_BASE_URL}${endpoint}`;
-}
-
-// Helper function to check if backend is available
-function isBackendAvailable() {
-    // Backend is available in development or when deployed in production
-    return CONFIG.IS_DEVELOPMENT || CONFIG.BACKEND_DEPLOYED;
-}
-
-// Helper function to show backend deployment message
-function showBackendMessage() {
-    return 'Backend deployment required. Please see GITHUB_PAGES_DEPLOYMENT.md for instructions.';
-}
+};
 
 // Export for use in other scripts
 if (typeof module !== 'undefined' && module.exports) {

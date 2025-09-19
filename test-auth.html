@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .error {
+            color: #dc3545;
+            margin-top: 5px;
+        }
+        .success {
+            color: #28a745;
+            margin-top: 5px;
+        }
+        .status {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+        .hidden {
+            display: none;
+        }
+        .auth-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .auth-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Authentication System Test</h1>
+        
+        <div class="status" id="status">
+            <strong>Status:</strong> <span id="status-text">Loading...</span>
+        </div>
+
+        <div id="debug-info" class="debug-info">
+            <strong>Debug Information:</strong><br>
+            <span id="debug-content">Initializing...</span>
+        </div>
+
+        <!-- Login Section -->
+        <div class="auth-section" id="login-section">
+            <h3>Login</h3>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-email">Email:</label>
+                    <input type="email" id="login-email" required value="test@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password:</label>
+                    <input type="password" id="login-password" required value="password123">
+                </div>
+                <button type="submit">Login</button>
+                <div id="login-error" class="error"></div>
+                <div id="login-success" class="success"></div>
+            </form>
+        </div>
+
+        <!-- Signup Section -->
+        <div class="auth-section" id="signup-section">
+            <h3>Signup</h3>
+            <form id="signup-form">
+                <div class="form-group">
+                    <label for="signup-username">Username:</label>
+                    <input type="text" id="signup-username" required value="testuser">
+                </div>
+                <div class="form-group">
+                    <label for="signup-email">Email:</label>
+                    <input type="email" id="signup-email" required value="newuser@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="signup-password">Password:</label>
+                    <input type="password" id="signup-password" required value="password123">
+                </div>
+                <button type="submit">Signup</button>
+                <div id="signup-error" class="error"></div>
+                <div id="signup-success" class="success"></div>
+            </form>
+        </div>
+
+        <!-- User Section -->
+        <div class="auth-section hidden" id="user-section">
+            <h3>Welcome, <span class="username">User</span>!</h3>
+            <p>You are successfully logged in.</p>
+            <button id="logout-btn">Logout</button>
+        </div>
+
+        <!-- Test Actions -->
+        <div class="auth-section">
+            <h3>Test Actions</h3>
+            <button onclick="testBackendConnection()">Test Backend Connection</button>
+            <button onclick="clearAuthData()">Clear Authentication Data</button>
+            <button onclick="showCurrentAuthState()">Show Current Auth State</button>
+            <div id="test-results" class="debug-info hidden"></div>
+        </div>
+    </div>
+
+    <!-- Include config and auth -->
+    <script src="public/config.js"></script>
+    <script src="public/auth.js"></script>
+
+    <script>
+        // Initialize authentication system
+        const auth = new RobustAuth();
+
+        // Update debug information
+        function updateDebugInfo() {
+            const debugContent = document.getElementById('debug-content');
+            debugContent.innerHTML = `
+                Base URL: ${auth.baseURL}<br>
+                Auth Token: ${auth.authToken ? 'Present' : 'None'}<br>
+                Current User: ${auth.currentUser ? auth.currentUser.username : 'None'}<br>
+                Backend Available: ${auth.backendAvailable}<br>
+                Fallback Mode: ${auth.fallbackMode}<br>
+                Current Time: ${new Date().toLocaleString()}
+            `;
+        }
+
+        // Update status
+        function updateStatus(message, isError = false) {
+            const statusText = document.getElementById('status-text');
+            const statusDiv = document.getElementById('status');
+            statusText.textContent = message;
+            statusDiv.style.borderLeftColor = isError ? '#dc3545' : '#28a745';
+        }
+
+        // Test backend connection
+        async function testBackendConnection() {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.classList.remove('hidden');
+            resultsDiv.innerHTML = 'Testing backend connection...';
+            
+            try {
+                const result = await auth.testBackendConnection();
+                resultsDiv.innerHTML = `<strong>Backend Test Result:</strong><br>
+                    Connection: ${result ? 'SUCCESS' : 'FAILED'}<br>
+                    Backend Available: ${auth.backendAvailable}<br>
+                    Fallback Mode: ${auth.fallbackMode}`;
+                updateStatus(result ? 'Backend connected successfully' : 'Backend connection failed');
+            } catch (error) {
+                resultsDiv.innerHTML = `<strong>Backend Test Error:</strong><br>${error.message}`;
+                updateStatus('Backend test failed', true);
+            }
+            
+            updateDebugInfo();
+        }
+
+        // Clear authentication data
+        function clearAuthData() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('fallbackUsers');
+            
+            // Reset auth state
+            auth.authToken = null;
+            auth.currentUser = null;
+            auth.updateAuthUI();
+            
+            updateStatus('Authentication data cleared');
+            updateDebugInfo();
+        }
+
+        // Show current auth state
+        function showCurrentAuthState() {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.classList.remove('hidden');
+            
+            const authState = {
+                baseURL: auth.baseURL,
+                authToken: auth.authToken,
+                currentUser: auth.currentUser,
+                backendAvailable: auth.backendAvailable,
+                fallbackMode: auth.fallbackMode,
+                localStorage: {
+                    authToken: localStorage.getItem('authToken'),
+                    currentUser: localStorage.getItem('currentUser'),
+                    fallbackUsers: localStorage.getItem('fallbackUsers')
+                }
+            };
+            
+            resultsDiv.innerHTML = `<strong>Current Authentication State:</strong><br>
+                <pre>${JSON.stringify(authState, null, 2)}</pre>`;
+            
+            updateDebugInfo();
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDebugInfo();
+            
+            // Check initial connection
+            setTimeout(async () => {
+                try {
+                    await auth.testBackendConnection();
+                    updateStatus(auth.backendAvailable ? 'Authentication system ready' : 'Running in offline mode');
+                } catch (error) {
+                    updateStatus('Authentication system initialized in offline mode');
+                }
+                updateDebugInfo();
+            }, 1000);
+            
+            // Update debug info every 5 seconds
+            setInterval(updateDebugInfo, 5000);
+        });
+
+        // Override auth methods to update UI
+        const originalShowSuccess = auth.showSuccess;
+        const originalShowError = auth.showError;
+        
+        auth.showSuccess = function(elementId, message) {
+            originalShowSuccess.call(this, elementId, message);
+            updateStatus(message);
+            updateDebugInfo();
+        };
+        
+        auth.showError = function(elementId, message) {
+            originalShowError.call(this, elementId, message);
+            updateStatus(message, true);
+            updateDebugInfo();
+        };
+    </script>
+</body>
+</html>

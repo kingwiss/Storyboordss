@@ -18,7 +18,9 @@ const corsOptions = {
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
     'http://localhost:8080',
-    'http://127.0.0.1:8080'
+    'http://127.0.0.1:8080',
+    'https://storyboordss.github.io',
+    'https://cerebray.github.io'
   ],
   credentials: true,
   optionsSuccessStatus: 200
